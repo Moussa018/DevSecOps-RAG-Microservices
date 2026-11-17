@@ -1,0 +1,30 @@
+#!/bin/bash
+# Amorcage du noeud : k3s + Istio. Les applications sont deployees ensuite par la CI (SSM).
+set -euxo pipefail
+
+mkdir -p /opt/rag
+cat > /etc/rag.env <<'ENVEOF'
+REGION=${region}
+REGISTRY=${registry}
+SECRET_ID=${secret}
+BUCKET=${bucket}
+LLM_MODEL_ID=${llm}
+EMBED_MODEL_ID=${embed}
+ENVEOF
+chmod 600 /etc/rag.env
+
+dnf install -y tar gzip jq
+
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.31.4+k3s1 sh -s - --disable traefik --write-kubeconfig-mode 600
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+until kubectl get nodes 2>/dev/null | grep -q " Ready"; do sleep 5; done
+
+curl -sL https://istio.io/downloadIstio | ISTIO_VERSION=1.24.1 TARGET_ARCH=x86_64 sh -
+install istio-1.24.1/bin/istioctl /usr/local/bin/istioctl
+istioctl install --set profile=default -y
+
+# L'ingress Istio est expose en NodePort 30080 : c'est la seule cible de l'ALB
+kubectl -n istio-system patch svc istio-ingressgateway --type=json \
+  -p='[{"op":"replace","path":"/spec/type","value":"NodePort"},{"op":"add","path":"/spec/ports/1/nodePort","value":30080}]'
+
+touch /opt/rag/.bootstrapped
