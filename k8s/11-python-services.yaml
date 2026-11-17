@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: ingestion-service, namespace: rag }
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: ingestion-service, namespace: rag }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: ingestion-service } }
+  template:
+    metadata: { labels: { app: ingestion-service } }
+    spec:
+      serviceAccountName: ingestion-service
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: ingestion-service
+          image: ingestion-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8000 }]
+          envFrom: [{ configMapRef: { name: rag-config } }]   # LLM_BACKEND, AWS_REGION, ids des modeles
+          env: [{ name: QDRANT_URL, value: "http://qdrant:6333" }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /healthz, port: 8000 }, initialDelaySeconds: 5 }
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes: [{ name: tmp, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: ingestion-service, namespace: rag }
+spec: { selector: { app: ingestion-service }, ports: [{ name: http, port: 8000, targetPort: 8000 }] }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: rag-service, namespace: rag }
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: rag-service, namespace: rag }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: rag-service } }
+  template:
+    metadata: { labels: { app: rag-service } }
+    spec:
+      serviceAccountName: rag-service
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: rag-service
+          image: rag-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8000 }]
+          envFrom: [{ configMapRef: { name: rag-config } }]   # LLM_BACKEND, AWS_REGION, ids des modeles
+          env: [{ name: QDRANT_URL, value: "http://qdrant:6333" }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /healthz, port: 8000 }, initialDelaySeconds: 5 }
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes: [{ name: tmp, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: rag-service, namespace: rag }
+spec: { selector: { app: rag-service }, ports: [{ name: http, port: 8000, targetPort: 8000 }] }
