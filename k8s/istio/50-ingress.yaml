@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata: { name: public, namespace: rag }
+spec:
+  selector: { istio: ingressgateway }
+  servers:
+    - port: { number: 80, name: http, protocol: HTTP }   # prod: 443 + credentialName (cert-manager)
+      hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata: { name: api, namespace: rag }
+spec:
+  hosts: ["*"]
+  gateways: [public]
+  http:
+    - match: [{ uri: { prefix: /api/ } }]
+      route: [{ destination: { host: gateway, port: { number: 8080 } } }]
