@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rag
+  labels:
+    istio-injection: enabled                       # sidecar Envoy => mTLS automatique
+    pod-security.kubernetes.io/enforce: restricted # Pod Security Standards
