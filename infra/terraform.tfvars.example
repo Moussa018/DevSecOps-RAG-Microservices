@@ -1,0 +1,6 @@
+# Copiez en terraform.tfvars (ignore par git) et adaptez.
+github_repo   = "votre-compte/votre-depot"
+alert_email   = "vous@example.com"
+allowed_cidrs = ["203.0.113.10/32"] # votre IP publique uniquement
+# create_oidc_provider = false      # si le fournisseur OIDC GitHub existe deja
+# certificate_arn      = ""         # certificat ACM pour activer HTTPS
