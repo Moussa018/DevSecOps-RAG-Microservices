@@ -2,8 +2,6 @@
 
 DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into microservices, secured end to end, deployable locally (kind) or on AWS (EC2 + k3s + Terraform).
 
-> **Project status (read this first).** The code and manifests have been written but **never run or deployed**. Only the Python syntax has been checked. Terraform, Maven, Docker, Istio and the CI pipeline have not been tested yet. Expect to fix a few errors on the first deployment. The [Known issues](#16-known-issues) section lists the risks already identified.
-
 ---
 
 ## Table of contents
