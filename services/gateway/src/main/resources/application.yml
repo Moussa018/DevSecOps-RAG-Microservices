@@ -1,0 +1,11 @@
+server:
+  port: 8080
+  server-header: ""
+  max-http-request-header-size: 8KB
+  error: { include-message: never, include-stacktrace: never }
+spring.servlet.multipart.max-request-size: 1MB
+ingestion.url: ${INGESTION_URL:http://ingestion-service:8000}
+rag.url: ${RAG_URL:http://rag-service:8000}
+management:
+  endpoints.web.exposure.include: health
+  endpoint.health.probes.enabled: true
