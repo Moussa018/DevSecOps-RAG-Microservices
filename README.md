@@ -722,8 +722,6 @@ Risks identified during design, **not yet verified or fixed**:
 ---
 
 ## 20. References
-
-- Repository whose AWS architecture and pipeline inspired this project: `The-K2HW/AWS-DevSecOps-Project`
 - OWASP Top 10 for LLM Applications
 - Istio: security (PeerAuthentication, AuthorizationPolicy)
 - Kubernetes: Pod Security Standards, NetworkPolicy
