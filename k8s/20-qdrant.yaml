@@ -1,0 +1,30 @@
+# Qdrant (base vectorielle). Image tierce : epingler par digest en production.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: qdrant, namespace: rag }
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: qdrant, namespace: rag }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: qdrant } }
+  template:
+    metadata: { labels: { app: qdrant } }
+    spec:
+      serviceAccountName: qdrant
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:v1.12.4
+          ports: [{ containerPort: 6333 }]
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
+          volumeMounts: [{ name: data, mountPath: /qdrant/storage }]
+      volumes: [{ name: data, emptyDir: {} }]   # PVC chiffre en production
+---
+apiVersion: v1
+kind: Service
+metadata: { name: qdrant, namespace: rag }
+spec: { selector: { app: qdrant }, ports: [{ name: http, port: 6333 }] }
