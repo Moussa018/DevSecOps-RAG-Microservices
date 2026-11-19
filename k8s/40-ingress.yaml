@@ -1,23 +1,31 @@
-# Entree unique : ingress-nginx (NodePort 30080). Il re-chiffre vers le gateway en TLS mutuel :
-# - il verifie le certificat du gateway avec la CA privee (proxy-ssl-verify)
-# - il presente le certificat client "ingress-client" que le gateway exige
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: api
-  namespace: rag
-  annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/proxy-ssl-secret: "rag/ingress-client-tls"   # certificat client + ca.crt
-    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
-    nginx.ingress.kubernetes.io/proxy-ssl-name: "gateway.rag.svc"
-    nginx.ingress.kubernetes.io/proxy-ssl-server-name: "on"
-    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+# Entree unique : Traefik, l'ingress integre a k3s (port 80 du noeud serveur).
+# Traefik re-chiffre vers le gateway en TLS et verifie son certificat avec la CA privee.
+# Prerequis : le Secret "backend-ca" (cle tls.ca) est cree par les scripts de deploiement a partir de rag-ca.
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata: { name: gateway-transport, namespace: rag }
 spec:
-  ingressClassName: nginx
-  rules:
-    - http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend: { service: { name: gateway, port: { number: 8080 } } }
+  serverName: gateway.rag.svc          # nom verifie dans le certificat du gateway
+  rootCAsSecrets: [backend-ca]
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: limit-body, namespace: rag }
+spec:
+  buffering:
+    maxRequestBodyBytes: 1048576       # 1 Mo
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: api, namespace: rag }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: PathPrefix(`/api`)
+      kind: Rule
+      middlewares: [{ name: limit-body }]
+      services:
+        - name: gateway
+          port: 8080
+          scheme: https
+          serversTransport: gateway-transport

@@ -75,16 +75,3 @@ spec:
   usages: [server auth, client auth]
   privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
   issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
----
-# Certificat client presente par ingress-nginx au gateway (le gateway exige un certificat client)
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata: { name: ingress-client, namespace: rag }
-spec:
-  secretName: ingress-client-tls
-  commonName: ingress-client
-  duration: 2160h
-  renewBefore: 360h
-  usages: [client auth]
-  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
-  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }

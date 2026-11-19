@@ -1,6 +1,8 @@
-# Zero-trust reseau : tout interdit, puis flux explicites. Complete le TLS mutuel (couche 4 : qui peut se connecter).
-# Les services Python ne peuvent sortir NI vers Internet NI vers un autre pod non prevu : seul le VPC (endpoint
-# prive Bedrock) et le service de metadonnees (jeton IAM) sont joignables, et uniquement par ingestion et rag.
+# Zero-trust reseau entre pods : tout est interdit, puis des flux explicites.
+# - ingestion-service et qdrant n'ont AUCUNE sortie vers Internet.
+# - rag-service est le seul pod autorise a sortir : en 443, vers des adresses publiques (API Anthropic).
+# - il n'existe AUCUNE regle entre ingestion-service et rag-service, dans aucun sens.
+# Une NetworkPolicy filtre par IP et par port, pas par nom d'hote : voir README, section 7.5.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: { name: default-deny-all, namespace: rag }
@@ -18,13 +20,15 @@ spec:
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: { name: gateway-flows, namespace: rag }
+metadata: { name: gateway, namespace: rag }
 spec:
   podSelector: { matchLabels: { app: gateway } }
   policyTypes: [Ingress, Egress]
   ingress:
-    # uniquement le controleur d'ingress (et son certificat client est exige par le gateway)
-    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } } }]
+    # uniquement Traefik (ingress integre a k3s, namespace kube-system)
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: traefik } }
       ports: [{ port: 8080 }]
   egress:
     - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service] }] } }]
@@ -32,9 +36,9 @@ spec:
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: { name: workers-flows, namespace: rag }
+metadata: { name: ingestion-service, namespace: rag }
 spec:
-  podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service] }] }
+  podSelector: { matchLabels: { app: ingestion-service } }
   policyTypes: [Ingress, Egress]
   ingress:
     - from: [{ podSelector: { matchLabels: { app: gateway } } }]
@@ -42,19 +46,32 @@ spec:
   egress:
     - to: [{ podSelector: { matchLabels: { app: qdrant } } }]
       ports: [{ port: 6333 }]
-    # Bedrock via le VPC endpoint prive (10.0.0.0/16) : aucune sortie vers Internet
-    - to: [{ ipBlock: { cidr: 10.0.0.0/16 } }]
-      ports: [{ port: 443, protocol: TCP }]
-    # Jeton IAM du role du noeud (service de metadonnees)
-    - to: [{ ipBlock: { cidr: 169.254.169.254/32 } }]
-      ports: [{ port: 80, protocol: TCP }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: { name: qdrant-ingress, namespace: rag }
+metadata: { name: rag-service, namespace: rag }
+spec:
+  podSelector: { matchLabels: { app: rag-service } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app: gateway } } }]
+      ports: [{ port: 8000 }]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: qdrant } } }]
+      ports: [{ port: 6333 }]
+    # API Anthropic : Internet public uniquement, en 443. Reseaux prives et service de metadonnees exclus.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports: [{ port: 443, protocol: TCP }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: qdrant, namespace: rag }
 spec:
   podSelector: { matchLabels: { app: qdrant } }
-  policyTypes: [Ingress]   # aucune regle Egress : qdrant ne sort nulle part
+  policyTypes: [Ingress, Egress]   # aucune regle Egress : qdrant ne sort nulle part
   ingress:
     - from: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service] }] } }]
       ports: [{ port: 6333 }]

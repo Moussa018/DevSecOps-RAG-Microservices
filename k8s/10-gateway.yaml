@@ -13,6 +13,7 @@ spec:
     metadata: { labels: { app: gateway } }
     spec:
       serviceAccountName: gateway
+      nodeSelector: { role: core }   # sous-reseau core, noeud serveur k3s
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -24,7 +25,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8080 }]
           env:
-            - { name: SPRING_PROFILES_ACTIVE, value: tls }   # TLS + certificat client obligatoire (application-tls.yml)
+            - { name: SPRING_PROFILES_ACTIVE, value: tls }   # TLS (application-tls.yml)
             - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: jwt-secret, key: secret } } }
           securityContext:
             allowPrivilegeEscalation: false

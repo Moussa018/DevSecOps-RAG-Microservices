@@ -1,3 +1,4 @@
+# ingestion-service : sous-reseau ingest, sur son propre noeud. Aucun acces a Internet.
 apiVersion: v1
 kind: ServiceAccount
 metadata: { name: ingestion-service, namespace: rag }
@@ -7,24 +8,26 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: { name: ingestion-service, namespace: rag }
 spec:
-  replicas: 2
+  replicas: 1
   selector: { matchLabels: { app: ingestion-service } }
   template:
     metadata: { labels: { app: ingestion-service } }
     spec:
       serviceAccountName: ingestion-service
+      nodeSelector: { role: ingest }
       securityContext: { runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: ingestion-service
           image: ingestion-service:latest
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8000 }]
-          envFrom: [{ configMapRef: { name: rag-config } }]   # LLM_BACKEND, AWS_REGION, ids des modeles
+          envFrom: [{ configMapRef: { name: rag-config } }]   # LLM_BACKEND, LLM_MODEL_ID
           env: [{ name: QDRANT_URL, value: "https://qdrant:6333" }]
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
-          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
-          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 5 }
-          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          # le modele d'embeddings (ONNX) charge en memoire : prevoir de la marge
+          resources: { requests: { cpu: 200m, memory: 768Mi }, limits: { cpu: "1", memory: 1536Mi } }
+          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 30 }
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: tls, mountPath: /tls, readOnly: true }
@@ -37,6 +40,8 @@ kind: Service
 metadata: { name: ingestion-service, namespace: rag }
 spec: { selector: { app: ingestion-service }, ports: [{ name: https, port: 8000, targetPort: 8000 }] }
 ---
+# rag-service : sous-reseau query, sur son propre noeud. Seul service autorise a sortir vers Internet
+# (API Anthropic). La cle d'API n'est montee que dans ce pod.
 apiVersion: v1
 kind: ServiceAccount
 metadata: { name: rag-service, namespace: rag }
@@ -46,12 +51,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: { name: rag-service, namespace: rag }
 spec:
-  replicas: 2
+  replicas: 1
   selector: { matchLabels: { app: rag-service } }
   template:
     metadata: { labels: { app: rag-service } }
     spec:
       serviceAccountName: rag-service
+      nodeSelector: { role: query }
       securityContext: { runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: rag-service
@@ -59,11 +65,14 @@ spec:
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8000 }]
           envFrom: [{ configMapRef: { name: rag-config } }]
-          env: [{ name: QDRANT_URL, value: "https://qdrant:6333" }]
+          env:
+            - { name: QDRANT_URL, value: "https://qdrant:6333" }
+            # optional : le mode "fake" (local) n'a pas besoin de cle
+            - { name: ANTHROPIC_API_KEY, valueFrom: { secretKeyRef: { name: anthropic-api-key, key: key, optional: true } } }
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
-          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
-          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 5 }
-          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          resources: { requests: { cpu: 200m, memory: 768Mi }, limits: { cpu: "1", memory: 1536Mi } }
+          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 30 }
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: tls, mountPath: /tls, readOnly: true }
