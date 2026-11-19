@@ -3,7 +3,6 @@ server:
   ssl:
     enabled: true
     bundle: tls
-    client-auth: need          # TLS mutuel : l'ingress doit presenter un certificat signe par la CA privee
 spring:
   ssl:
     bundle:

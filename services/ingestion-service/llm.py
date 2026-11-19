@@ -1,34 +1,20 @@
-"""Acces au LLM et aux embeddings : Amazon Bedrock (par defaut) ou mode 'fake' pour tester sans AWS.
+"""Embeddings calcules DANS le service : aucun appel externe, aucun acces Internet requis.
 
-Authentification Bedrock : roles IAM (aucune cle d'API). Le trafic passe par un VPC endpoint prive.
+Le modele est integre a l'image au build (voir Dockerfile). Le mode 'fake' permet de tester sans modele.
 """
 import hashlib
-import json
 import math
 import os
 import re
+import threading
 
-BACKEND = os.getenv("LLM_BACKEND", "bedrock")
-REGION = os.getenv("AWS_REGION", "eu-west-3")
-EMBED_MODEL_ID = os.getenv("EMBED_MODEL_ID", "amazon.titan-embed-text-v2:0")
-LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "eu.anthropic.claude-haiku-4-5-20251001-v1:0")
-DIM = 1024  # dimension des embeddings Titan v2 ; a changer = recreer la collection Qdrant
+BACKEND = os.getenv("LLM_BACKEND", "anthropic")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+MODEL_DIR = os.getenv("FASTEMBED_CACHE_PATH", "/models")
+DIM = 384  # dimension du modele ; a changer = recreer la collection Qdrant. Meme modele dans ingestion ET rag.
 
-_client = None
-
-
-def _runtime():
-    global _client
-    if _client is None:
-        import boto3
-        from botocore.config import Config
-
-        _client = boto3.client(
-            "bedrock-runtime",
-            region_name=REGION,
-            config=Config(retries={"max_attempts": 3, "mode": "standard"}, connect_timeout=5, read_timeout=60),
-        )
-    return _client
+_model = None
+_lock = threading.Lock()
 
 
 def _fake_embed(text: str) -> list[float]:
@@ -40,25 +26,17 @@ def _fake_embed(text: str) -> list[float]:
     return [v / norm for v in vec]
 
 
+def _get_model():
+    global _model
+    with _lock:
+        if _model is None:
+            from fastembed import TextEmbedding
+
+            _model = TextEmbedding(model_name=EMBED_MODEL, cache_dir=MODEL_DIR)
+        return _model
+
+
 def embed(text: str) -> list[float]:
     if BACKEND == "fake":
         return _fake_embed(text)
-    resp = _runtime().invoke_model(
-        modelId=EMBED_MODEL_ID,
-        body=json.dumps({"inputText": text, "dimensions": DIM, "normalize": True}),
-        contentType="application/json",
-        accept="application/json",
-    )
-    return json.loads(resp["body"].read())["embedding"]
-
-
-def generate(system: str, prompt: str) -> str:
-    if BACKEND == "fake":
-        return "[mode test, sans LLM] Extraits les plus proches : " + prompt[:400]
-    resp = _runtime().converse(
-        modelId=LLM_MODEL_ID,
-        system=[{"text": system}],
-        messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"maxTokens": 512, "temperature": 0.2},
-    )
-    return resp["output"]["message"]["content"][0]["text"]
+    return next(iter(_get_model().embed([text]))).tolist()

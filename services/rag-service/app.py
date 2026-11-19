@@ -1,4 +1,4 @@
-"""RAG : garde-fou prompt-injection, recherche filtree par ACL, generation (Bedrock), filtre de sortie."""
+"""RAG : garde-fou prompt-injection, recherche filtree par ACL, generation (API Anthropic), filtre de sortie."""
 import asyncio
 import logging
 import os

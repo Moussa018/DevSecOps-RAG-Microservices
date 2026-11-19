@@ -1,4 +1,4 @@
-"""Ingestion : nettoie (secrets/PII), decoupe, vectorise (Bedrock) et stocke avec ACL."""
+"""Ingestion : nettoie (secrets/PII), decoupe, vectorise (modele local) et stocke avec ACL."""
 import asyncio
 import logging
 import os
