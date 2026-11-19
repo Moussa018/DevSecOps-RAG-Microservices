@@ -1,4 +1,5 @@
-# Qdrant (base vectorielle). Image tierce : epingler par digest en production.
+# Qdrant (base vectorielle) en TLS mutuel : seuls les clients presentant un certificat de la CA privee sont acceptes.
+# Image tierce : epingler par digest en production.
 apiVersion: v1
 kind: ServiceAccount
 metadata: { name: qdrant, namespace: rag }
@@ -19,12 +20,23 @@ spec:
         - name: qdrant
           image: qdrant/qdrant:v1.12.4
           ports: [{ containerPort: 6333 }]
+          env:
+            - { name: QDRANT__SERVICE__ENABLE_TLS, value: "true" }
+            - { name: QDRANT__SERVICE__VERIFY_HTTPS_CLIENT_CERTIFICATE, value: "true" }
+            - { name: QDRANT__TLS__CERT, value: /tls/tls.crt }
+            - { name: QDRANT__TLS__KEY, value: /tls/tls.key }
+            - { name: QDRANT__TLS__CA_CERT, value: /tls/ca.crt }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
-          volumeMounts: [{ name: data, mountPath: /qdrant/storage }]
-      volumes: [{ name: data, emptyDir: {} }]   # PVC chiffre en production
+          readinessProbe: { tcpSocket: { port: 6333 }, initialDelaySeconds: 5 }
+          volumeMounts:
+            - { name: data, mountPath: /qdrant/storage }
+            - { name: tls, mountPath: /tls, readOnly: true }
+      volumes:
+        - { name: data, emptyDir: {} }   # PVC chiffre en production
+        - { name: tls, secret: { secretName: qdrant-tls, defaultMode: 0440 } }
 ---
 apiVersion: v1
 kind: Service
 metadata: { name: qdrant, namespace: rag }
-spec: { selector: { app: qdrant }, ports: [{ name: http, port: 6333 }] }
+spec: { selector: { app: qdrant }, ports: [{ name: https, port: 6333 }] }
