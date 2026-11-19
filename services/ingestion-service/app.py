@@ -12,8 +12,19 @@ from pydantic import BaseModel, Field
 import llm
 
 log = logging.getLogger("ingestion")
-QDRANT = os.getenv("QDRANT_URL", "http://qdrant:6333")
+QDRANT = os.getenv("QDRANT_URL", "https://qdrant:6333")
 COLLECTION = "docs"
+TLS_DIR = os.getenv("TLS_DIR", "/tls")
+
+
+def qdrant_client(timeout: int = 60) -> httpx.AsyncClient:
+    """Client TLS mutuel vers Qdrant : verifie le serveur avec la CA privee et presente son propre certificat."""
+    return httpx.AsyncClient(
+        timeout=timeout,
+        verify=f"{TLS_DIR}/ca.crt",
+        cert=(f"{TLS_DIR}/tls.crt", f"{TLS_DIR}/tls.key"),
+    )
+
 MAX_CHUNKS = int(os.getenv("MAX_CHUNKS", "100"))  # borne le cout de l'API externe par document
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -75,7 +86,7 @@ async def ingest(doc: Doc, x_user: str = Header(), x_groups: str = Header("")):
                      "groups": doc.allowed_groups, "owner": x_user}}
         for n, (p, v) in enumerate(zip(parts, vectors))
     ]
-    async with httpx.AsyncClient(timeout=60) as c:
+    async with qdrant_client() as c:
         # idempotent : un 409 (collection deja creee) est ignore
         await c.put(f"{QDRANT}/collections/{COLLECTION}",
                     json={"vectors": {"size": llm.DIM, "distance": "Cosine"}})
