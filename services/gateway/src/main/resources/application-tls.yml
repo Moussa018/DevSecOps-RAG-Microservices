@@ -1,0 +1,20 @@
+# Profil "tls" (active dans Kubernetes). Les certificats viennent de cert-manager, montes dans /tls.
+server:
+  ssl:
+    enabled: true
+    bundle: tls
+    client-auth: need          # TLS mutuel : l'ingress doit presenter un certificat signe par la CA privee
+spring:
+  ssl:
+    bundle:
+      pem:
+        tls:
+          reload-on-update: true   # recharge a chaud apres renouvellement du certificat
+          keystore:
+            certificate: file:/tls/tls.crt
+            private-key: file:/tls/tls.key
+          truststore:
+            certificate: file:/tls/ca.crt
+gateway:
+  tls:
+    bundle: tls                # utilise aussi pour les appels sortants vers ingestion et rag

@@ -1,11 +1,15 @@
 package com.rag.gateway;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.ssl.SslBundles;
+import org.springframework.boot.web.client.ClientHttpRequestFactories;
+import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -22,7 +26,7 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Point d'entree unique : valide le JWT, applique les roles, puis transmet l'identite aux services
- * internes via des en-tetes. Les services internes ne font confiance qu'a ce gateway (AuthorizationPolicy Istio).
+ * internes via des en-tetes. Les services internes ne font confiance qu'a ce gateway (TLS mutuel avec la CA privee + NetworkPolicy).
  */
 @SpringBootApplication
 @RestController
@@ -31,9 +35,20 @@ public class GatewayApplication {
     private final RestClient ingestion;
     private final RestClient rag;
 
-    GatewayApplication(@Value("${ingestion.url}") String ingestionUrl, @Value("${rag.url}") String ragUrl) {
-        this.ingestion = RestClient.builder().baseUrl(ingestionUrl).build();
-        this.rag = RestClient.builder().baseUrl(ragUrl).build();
+    /**
+     * Profil "tls" : le gateway presente son certificat et exige celui de l'appelant (ingress). Vers les services
+     * internes, il agit en client TLS mutuel : il presente son certificat et verifie le leur avec la CA privee.
+     */
+    GatewayApplication(@Value("${ingestion.url}") String ingestionUrl, @Value("${rag.url}") String ragUrl,
+                       @Value("${gateway.tls.bundle:}") String bundle, SslBundles sslBundles) {
+        var settings = ClientHttpRequestFactorySettings.DEFAULTS
+            .withConnectTimeout(Duration.ofSeconds(5)).withReadTimeout(Duration.ofSeconds(60));
+        if (!bundle.isEmpty()) {
+            settings = settings.withSslBundle(sslBundles.getBundle(bundle));
+        }
+        var factory = ClientHttpRequestFactories.get(settings);
+        this.ingestion = RestClient.builder().baseUrl(ingestionUrl).requestFactory(factory).build();
+        this.rag = RestClient.builder().baseUrl(ragUrl).requestFactory(factory).build();
     }
 
     public static void main(String[] args) { SpringApplication.run(GatewayApplication.class, args); }
