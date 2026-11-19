@@ -1,4 +1,4 @@
-# ---- Role du noeud : moindre privilege ----
+# ---- One minimal role per node ----
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -9,17 +9,24 @@ data "aws_iam_policy_document" "ec2_assume" {
   }
 }
 
+locals {
+  node_roles = toset(["core", "ingest", "query"])
+}
+
 resource "aws_iam_role" "node" {
-  name_prefix        = "${var.project}-node-"
+  for_each           = local.node_roles
+  name_prefix        = "${var.project}-${each.key}-"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.node.name
+  for_each   = aws_iam_role.node
+  role       = each.value.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-data "aws_iam_policy_document" "node" {
+# core: runs the deployment, so it reads the three secrets, the release bucket and pulls from ECR
+data "aws_iam_policy_document" "core" {
   statement {
     sid       = "EcrToken"
     actions   = ["ecr:GetAuthorizationToken"]
@@ -31,9 +38,13 @@ data "aws_iam_policy_document" "node" {
     resources = [for r in aws_ecr_repository.svc : r.arn]
   }
   statement {
-    sid       = "ReadJwtSecret"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.jwt.arn]
+    sid     = "ReadSecrets"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_secretsmanager_secret.jwt.arn,
+      aws_secretsmanager_secret.k3s_token.arn,
+      aws_secretsmanager_secret.anthropic.arn,
+    ]
   }
   statement {
     sid       = "ReadRelease"
@@ -45,25 +56,36 @@ data "aws_iam_policy_document" "node" {
     actions   = ["kms:Decrypt"]
     resources = [aws_kms_key.main.arn]
   }
+}
+
+# workers: only the k3s join token. Images are pulled with the cluster pull secret, not with this role.
+data "aws_iam_policy_document" "worker" {
   statement {
-    sid       = "InvokeBedrock"
-    actions   = ["bedrock:InvokeModel"] # uniquement les deux modeles utilises
-    resources = local.bedrock_resources
+    sid       = "ReadK3sToken"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.k3s_token.arn]
+  }
+  statement {
+    sid       = "Decrypt"
+    actions   = ["kms:Decrypt"]
+    resources = [aws_kms_key.main.arn]
   }
 }
 
 resource "aws_iam_role_policy" "node" {
-  name   = "least-privilege"
-  role   = aws_iam_role.node.id
-  policy = data.aws_iam_policy_document.node.json
+  for_each = aws_iam_role.node
+  name     = "least-privilege"
+  role     = each.value.id
+  policy   = each.key == "core" ? data.aws_iam_policy_document.core.json : data.aws_iam_policy_document.worker.json
 }
 
 resource "aws_iam_instance_profile" "node" {
-  name_prefix = "${var.project}-node-"
-  role        = aws_iam_role.node.name
+  for_each    = aws_iam_role.node
+  name_prefix = "${var.project}-${each.key}-"
+  role        = each.value.name
 }
 
-# ---- GitHub Actions : OIDC, aucune cle AWS stockee ----
+# ---- GitHub Actions: OIDC, no AWS key stored ----
 resource "aws_iam_openid_connect_provider" "github" {
   count           = var.create_oidc_provider ? 1 : 0
   url             = "https://token.actions.githubusercontent.com"
@@ -90,7 +112,7 @@ data "aws_iam_policy_document" "gha_assume" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"] # uniquement la branche main
+      values   = ["repo:${var.github_repo}:ref:refs/heads/main"] # main branch only
     }
   }
 }
@@ -122,7 +144,7 @@ data "aws_iam_policy_document" "gha" {
   }
   statement {
     actions   = ["ssm:SendCommand"]
-    resources = ["arn:aws:ssm:${var.region}::document/AWS-RunShellScript", aws_instance.node.arn]
+    resources = ["arn:aws:ssm:${var.region}::document/AWS-RunShellScript", aws_instance.core.arn]
   }
   statement {
     actions   = ["ssm:GetCommandInvocation"]

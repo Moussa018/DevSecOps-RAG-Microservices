@@ -1,0 +1,35 @@
+#!/bin/bash
+# Bootstrap of the k3s SERVER node (core subnet): k3s + cert-manager. Traefik is built into k3s.
+# Applications are deployed afterwards by CI (SSM).
+set -euxo pipefail
+
+mkdir -p /opt/rag
+cat > /etc/rag.env <<'ENVEOF'
+REGION=${region}
+REGISTRY=${registry}
+JWT_SECRET_ID=${jwt_secret}
+ANTHROPIC_SECRET_ID=${anthropic_secret}
+BUCKET=${bucket}
+LLM_MODEL_ID=${llm}
+ENVEOF
+chmod 600 /etc/rag.env
+
+dnf install -y tar gzip jq
+
+# The join token is read from Secrets Manager: it never appears in user-data
+K3S_TOKEN="$(aws secretsmanager get-secret-value --secret-id ${k3s_secret} --region ${region} --query SecretString --output text)"
+
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.31.4+k3s1 K3S_TOKEN="$K3S_TOKEN" \
+  sh -s - server --write-kubeconfig-mode 600 --node-label role=core
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+until kubectl get nodes 2>/dev/null | grep -q " Ready"; do sleep 5; done
+
+# cert-manager: private PKI for the mutual TLS between services. Pinned to the core node.
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml
+for d in cert-manager cert-manager-cainjector cert-manager-webhook; do
+  kubectl -n cert-manager patch deploy/$d -p '{"spec":{"template":{"spec":{"nodeSelector":{"role":"core"}}}}}'
+  kubectl -n cert-manager rollout status deploy/$d --timeout=300s
+done
+kubectl -n kube-system rollout status deploy/traefik --timeout=300s
+
+touch /opt/rag/.bootstrapped

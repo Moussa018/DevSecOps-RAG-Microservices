@@ -3,16 +3,26 @@ output "app_url" {
 }
 
 output "instance_id" {
-  value = aws_instance.node.id
+  description = "Core node (k3s server): the CI deploys through this one. Put it in the GitHub secret INSTANCE_ID."
+  value       = aws_instance.core.id
+}
+
+output "worker_instance_ids" {
+  value = { for k, i in aws_instance.worker : k => i.id }
 }
 
 output "ssm_session" {
-  description = "Acces administrateur sans SSH"
-  value       = "aws ssm start-session --target ${aws_instance.node.id} --region ${var.region}"
+  description = "Administrator access without SSH"
+  value       = "aws ssm start-session --target ${aws_instance.core.id} --region ${var.region}"
+}
+
+output "anthropic_secret_id" {
+  description = "Set the API key once: aws secretsmanager put-secret-value --secret-id <this> --secret-string <key>"
+  value       = aws_secretsmanager_secret.anthropic.id
 }
 
 output "github_actions_role_arn" {
-  description = "A mettre dans le secret GitHub AWS_ROLE_ARN"
+  description = "Put it in the GitHub secret AWS_ROLE_ARN"
   value       = aws_iam_role.gha.arn
 }
 

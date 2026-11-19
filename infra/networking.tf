@@ -1,4 +1,16 @@
-# VPC : sous-reseaux publics (ALB, NAT) et prives (noeud k3s). Un seul NAT pour limiter le cout.
+# VPC: public subnets (ALB, NAT) and THREE private subnets, one per node:
+#   core   10.0.1.0/24  AZ a  k3s server: Traefik, gateway, qdrant, cert-manager
+#   ingest 10.0.2.0/24  AZ a  k3s agent : ingestion-service only
+#   query  10.0.3.0/24  AZ b  k3s agent : rag-service only
+# One NAT gateway for the three private subnets (cost).
+locals {
+  private_subnets = {
+    core   = { cidr = "10.0.1.0/24", az = local.azs[0] }
+    ingest = { cidr = "10.0.2.0/24", az = local.azs[0] }
+    query  = { cidr = "10.0.3.0/24", az = local.azs[1] }
+  }
+}
+
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -13,17 +25,17 @@ resource "aws_internet_gateway" "igw" {
 resource "aws_subnet" "public" {
   count             = 2
   vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
+  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, 100 + count.index)
   availability_zone = local.azs[count.index]
   tags              = { Name = "${var.project}-public-${count.index}" }
 }
 
 resource "aws_subnet" "private" {
-  count             = 2
+  for_each          = local.private_subnets
   vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, 10 + count.index)
-  availability_zone = local.azs[count.index]
-  tags              = { Name = "${var.project}-private-${count.index}" }
+  cidr_block        = each.value.cidr
+  availability_zone = each.value.az
+  tags              = { Name = "${var.project}-${each.key}" }
 }
 
 resource "aws_eip" "nat" {
@@ -59,12 +71,12 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_route_table_association" "private" {
-  count          = 2
-  subnet_id      = aws_subnet.private[count.index].id
+  for_each       = aws_subnet.private
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.private.id
 }
 
-# Le groupe de securite par defaut du VPC ne laisse rien passer
+# The default security group of the VPC lets nothing through
 resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.main.id
 }
