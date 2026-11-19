@@ -1,6 +1,6 @@
-# Zero-trust reseau : tout interdit, puis flux explicites.
-# Les pods ne peuvent sortir NI vers Internet NI vers un autre pod non prevu : seul le VPC (endpoint prive
-# Bedrock) et le service de metadonnees (jeton IAM) sont joignables, et uniquement par ingestion et rag.
+# Zero-trust reseau : tout interdit, puis flux explicites. Complete le TLS mutuel (couche 4 : qui peut se connecter).
+# Les services Python ne peuvent sortir NI vers Internet NI vers un autre pod non prevu : seul le VPC (endpoint
+# prive Bedrock) et le service de metadonnees (jeton IAM) sont joignables, et uniquement par ingestion et rag.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: { name: default-deny-all, namespace: rag }
@@ -8,14 +8,13 @@ spec: { podSelector: {}, policyTypes: [Ingress, Egress] }
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: { name: allow-dns-and-istiod, namespace: rag }
+metadata: { name: allow-dns, namespace: rag }
 spec:
   podSelector: {}
   policyTypes: [Egress]
   egress:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
       ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
-    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: istio-system } } }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -24,7 +23,8 @@ spec:
   podSelector: { matchLabels: { app: gateway } }
   policyTypes: [Ingress, Egress]
   ingress:
-    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: istio-system } } }]
+    # uniquement le controleur d'ingress (et son certificat client est exige par le gateway)
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } } }]
       ports: [{ port: 8080 }]
   egress:
     - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service] }] } }]
@@ -57,3 +57,4 @@ spec:
   policyTypes: [Ingress]   # aucune regle Egress : qdrant ne sort nulle part
   ingress:
     - from: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service] }] } }]
+      ports: [{ port: 6333 }]
