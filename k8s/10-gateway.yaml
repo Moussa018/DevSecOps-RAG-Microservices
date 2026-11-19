@@ -12,17 +12,19 @@ spec:
   template:
     metadata: { labels: { app: gateway } }
     spec:
-      serviceAccountName: gateway   # identite SPIFFE: cluster.local/ns/rag/sa/gateway
+      serviceAccountName: gateway
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
+        fsGroup: 65532
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: gateway
-          image: gateway:latest      # en CI: reference par digest signe (cosign)
+          image: gateway:latest      # en CI : reference par digest signe (cosign)
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8080 }]
           env:
+            - { name: SPRING_PROFILES_ACTIVE, value: tls }   # TLS + certificat client obligatoire (application-tls.yml)
             - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: jwt-secret, key: secret } } }
           securityContext:
             allowPrivilegeEscalation: false
@@ -31,13 +33,19 @@ spec:
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits: { cpu: 500m, memory: 512Mi }
-          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: 8080 }, initialDelaySeconds: 15 }
-          volumeMounts: [{ name: tmp, mountPath: /tmp }]
-      volumes: [{ name: tmp, emptyDir: {} }]
+          # Sondes TCP : le kubelet ne peut pas presenter de certificat client
+          readinessProbe: { tcpSocket: { port: 8080 }, initialDelaySeconds: 15 }
+          livenessProbe: { tcpSocket: { port: 8080 }, initialDelaySeconds: 30 }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: tls, mountPath: /tls, readOnly: true }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: tls, secret: { secretName: gateway-tls, defaultMode: 0440 } }
 ---
 apiVersion: v1
 kind: Service
 metadata: { name: gateway, namespace: rag }
 spec:
   selector: { app: gateway }
-  ports: [{ name: http, port: 8080, targetPort: 8080 }]
+  ports: [{ name: https, port: 8080, targetPort: 8080 }]
