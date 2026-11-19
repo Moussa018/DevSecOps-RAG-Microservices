@@ -11,8 +11,19 @@ from pydantic import BaseModel, Field
 import llm
 
 log = logging.getLogger("rag")
-QDRANT = os.getenv("QDRANT_URL", "http://qdrant:6333")
+QDRANT = os.getenv("QDRANT_URL", "https://qdrant:6333")
 COLLECTION = "docs"
+TLS_DIR = os.getenv("TLS_DIR", "/tls")
+
+
+def qdrant_client(timeout: int = 60) -> httpx.AsyncClient:
+    """Client TLS mutuel vers Qdrant : verifie le serveur avec la CA privee et presente son propre certificat."""
+    return httpx.AsyncClient(
+        timeout=timeout,
+        verify=f"{TLS_DIR}/ca.crt",
+        cert=(f"{TLS_DIR}/tls.crt", f"{TLS_DIR}/tls.key"),
+    )
+
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -49,7 +60,7 @@ async def query(q: Query, x_user: str = Header(), x_groups: str = Header("")):
     except Exception:
         log.exception("echec de l'embedding")
         raise HTTPException(502, "service d'embeddings indisponible")
-    async with httpx.AsyncClient(timeout=60) as c:
+    async with qdrant_client() as c:
         # Controle d'acces au niveau document : filtre applique PAR LE SERVEUR, jamais par le client
         s = await c.post(f"{QDRANT}/collections/{COLLECTION}/points/search", json={
             "vector": vector, "limit": 4, "with_payload": True,

@@ -10,4 +10,5 @@ WORKDIR /app
 COPY app.py llm.py ./
 USER 65532
 EXPOSE 8000
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--no-server-header"]
+# TLS mutuel : le serveur exige un certificat client signe par la CA privee (--ssl-cert-reqs 2 = CERT_REQUIRED)
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--no-server-header", "--ssl-keyfile", "/tls/tls.key", "--ssl-certfile", "/tls/tls.crt", "--ssl-ca-certs", "/tls/ca.crt", "--ssl-cert-reqs", "2"]
