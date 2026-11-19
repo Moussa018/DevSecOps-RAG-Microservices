@@ -8,7 +8,6 @@ A DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into 
 - Embeddings are computed **inside the services**, so documents never leave the cluster in raw form.
 - Runs locally on k3d (k3s in Docker) or on AWS (3 EC2 nodes + Terraform).
 
-> **Status (read first).** Everything is written and is consistent with this document, but **nothing has been run end to end**: no image built, no cluster started, no Terraform applied, no pipeline run. Only the syntax of the Python code, the YAML and the shell scripts was checked. Expect to fix some errors on the first deployment. The riskiest assumptions are listed in [Known issues](#16-known-issues).
 
 ![AWS architecture](docs/architecture-aws.png)
 
@@ -722,8 +721,6 @@ Risks identified, **none verified**:
 ---
 
 ## 20. References
-
-- Repository whose AWS architecture and pipeline inspired this one: `The-K2HW/AWS-DevSecOps-Project`
 - OWASP Top 10 for LLM Applications
 - cert-manager: Certificate, Issuer, CA issuer
 - Traefik: `ServersTransport`, `IngressRoute`, `Middleware`
