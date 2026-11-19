@@ -3,5 +3,5 @@ kind: Namespace
 metadata:
   name: rag
   labels:
-    istio-injection: enabled                       # sidecar Envoy => mTLS automatique
-    pod-security.kubernetes.io/enforce: restricted # Pod Security Standards
+    # Pas de sidecar : le niveau "restricted" s'applique sans exception
+    pod-security.kubernetes.io/enforce: restricted
