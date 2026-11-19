@@ -36,8 +36,12 @@ kubectl -n rag create secret docker-registry ecr \
   --docker-password="$(aws ecr get-login-password --region "$REGION")" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# PKI : cert-manager emet le certificat TLS de chaque service avant le demarrage des pods
+kubectl apply -f k8s/05-pki.yaml
+kubectl -n rag wait --for=condition=Ready certificate --all --timeout=180s
+
 kubectl apply -f k8s/10-gateway.yaml -f k8s/11-python-services.yaml -f k8s/20-qdrant.yaml
-kubectl apply -f k8s/istio/
+kubectl apply -f k8s/40-ingress.yaml
 kubectl apply -f k8s/30-network-policies.yaml
 
 for sa in gateway ingestion-service rag-service; do
