@@ -1,0 +1,23 @@
+# Entree unique : ingress-nginx (NodePort 30080). Il re-chiffre vers le gateway en TLS mutuel :
+# - il verifie le certificat du gateway avec la CA privee (proxy-ssl-verify)
+# - il presente le certificat client "ingress-client" que le gateway exige
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  namespace: rag
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/proxy-ssl-secret: "rag/ingress-client-tls"   # certificat client + ca.crt
+    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
+    nginx.ingress.kubernetes.io/proxy-ssl-name: "gateway.rag.svc"
+    nginx.ingress.kubernetes.io/proxy-ssl-server-name: "on"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend: { service: { name: gateway, port: { number: 8080 } } }
