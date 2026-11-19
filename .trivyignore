@@ -3,7 +3,7 @@
 AVD-AWS-0053
 # Ecoute HTTP : la demo n'a pas de nom de domaine ni de certificat ACM (variable certificate_arn pour activer HTTPS)
 AVD-AWS-0054
-# Le noeud k3s sort en HTTPS/HTTP vers Internet (ECR, dnf, k3s, Istio) ; restreindre avec des VPC endpoints en production
+# Le noeud k3s sort en HTTPS/HTTP vers Internet (ECR, dnf, k3s, cert-manager, ingress-nginx) ; restreindre avec des VPC endpoints en production
 AVD-AWS-0104
 # Qdrant est une image tierce qui ecrit sur son volume ; readOnlyRootFilesystem non applicable
 KSV-0014
