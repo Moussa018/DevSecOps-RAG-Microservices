@@ -1,5 +1,5 @@
 #!/bin/bash
-# Amorcage du noeud : k3s + Istio. Les applications sont deployees ensuite par la CI (SSM).
+# Amorcage du noeud : k3s + cert-manager + ingress-nginx (pas de service mesh). Les applications sont deployees ensuite par la CI (SSM).
 set -euxo pipefail
 
 mkdir -p /opt/rag
@@ -19,12 +19,16 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.31.4+k3s1 sh -s - --disabl
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 until kubectl get nodes 2>/dev/null | grep -q " Ready"; do sleep 5; done
 
-curl -sL https://istio.io/downloadIstio | ISTIO_VERSION=1.24.1 TARGET_ARCH=x86_64 sh -
-install istio-1.24.1/bin/istioctl /usr/local/bin/istioctl
-istioctl install --set profile=default -y
+# cert-manager : PKI privee pour le TLS mutuel entre services
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml
+for d in cert-manager cert-manager-cainjector cert-manager-webhook; do
+  kubectl -n cert-manager rollout status deploy/$d --timeout=300s
+done
 
-# L'ingress Istio est expose en NodePort 30080 : c'est la seule cible de l'ALB
-kubectl -n istio-system patch svc istio-ingressgateway --type=json \
-  -p='[{"op":"replace","path":"/spec/type","value":"NodePort"},{"op":"add","path":"/spec/ports/1/nodePort","value":30080}]'
+# ingress-nginx : seule cible de l'ALB, expose en NodePort 30080
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/baremetal/deploy.yaml
+kubectl -n ingress-nginx patch svc ingress-nginx-controller --type=json \
+  -p='[{"op":"replace","path":"/spec/ports/0/nodePort","value":30080}]'
+kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=300s
 
 touch /opt/rag/.bootstrapped
