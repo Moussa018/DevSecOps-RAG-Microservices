@@ -26,7 +26,7 @@ variable "allowed_cidrs" {
 }
 
 variable "instance_type" {
-  description = "8 Go de RAM suffisent : Istio + Qdrant + 3 services (le LLM est externe)."
+  description = "8 Go de RAM suffisent : cert-manager + ingress-nginx + Qdrant + 3 services (le LLM est externe)."
   type        = string
   default     = "t3.large"
 }

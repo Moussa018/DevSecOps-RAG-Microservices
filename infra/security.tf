@@ -35,7 +35,7 @@ resource "aws_vpc_security_group_ingress_rule" "alb_https" {
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_node" {
   security_group_id            = aws_security_group.alb.id
-  description                  = "Vers l'ingress Istio (NodePort)"
+  description                  = "Vers ingress-nginx (NodePort)"
   referenced_security_group_id = aws_security_group.node.id
   from_port                    = 30080
   to_port                      = 30080
@@ -44,7 +44,7 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_node" {
 
 resource "aws_vpc_security_group_ingress_rule" "node_from_alb" {
   security_group_id            = aws_security_group.node.id
-  description                  = "Uniquement l'ALB, uniquement le NodePort Istio"
+  description                  = "Uniquement l'ALB, uniquement le NodePort d'ingress-nginx"
   referenced_security_group_id = aws_security_group.alb.id
   from_port                    = 30080
   to_port                      = 30080
