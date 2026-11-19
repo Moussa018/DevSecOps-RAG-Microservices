@@ -1,0 +1,90 @@
+# PKI privee : cert-manager emet un certificat a chaque service. Chaque saut interne exige un certificat
+# signe par cette CA (TLS mutuel). Prerequis : cert-manager installe (voir scripts/deploy-local.sh).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata: { name: rag-selfsigned }
+spec: { selfSigned: {} }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: rag-ca, namespace: rag }
+spec:
+  isCA: true
+  commonName: rag-internal-ca
+  secretName: rag-ca          # contient la cle privee de la CA : proteger l'acces aux Secrets par RBAC
+  duration: 87600h            # 10 ans
+  privateKey: { algorithm: ECDSA, size: 256 }
+  issuerRef: { name: rag-selfsigned, kind: ClusterIssuer, group: cert-manager.io }
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata: { name: rag-ca, namespace: rag }
+spec: { ca: { secretName: rag-ca } }
+---
+# Certificats des services : duree de 90 jours, renouvelee automatiquement 15 jours avant l'echeance.
+# Les pods Python chargent les fichiers au demarrage : un redemarrage est necessaire apres renouvellement
+# (le gateway recharge a chaud grace a reload-on-update).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: gateway, namespace: rag }
+spec:
+  secretName: gateway-tls
+  commonName: gateway
+  duration: 2160h
+  renewBefore: 360h
+  dnsNames: [gateway, gateway.rag, gateway.rag.svc, gateway.rag.svc.cluster.local]
+  usages: [server auth, client auth]
+  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: ingestion-service, namespace: rag }
+spec:
+  secretName: ingestion-service-tls
+  commonName: ingestion-service
+  duration: 2160h
+  renewBefore: 360h
+  dnsNames: [ingestion-service, ingestion-service.rag, ingestion-service.rag.svc, ingestion-service.rag.svc.cluster.local]
+  usages: [server auth, client auth]
+  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: rag-service, namespace: rag }
+spec:
+  secretName: rag-service-tls
+  commonName: rag-service
+  duration: 2160h
+  renewBefore: 360h
+  dnsNames: [rag-service, rag-service.rag, rag-service.rag.svc, rag-service.rag.svc.cluster.local]
+  usages: [server auth, client auth]
+  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: qdrant, namespace: rag }
+spec:
+  secretName: qdrant-tls
+  commonName: qdrant
+  duration: 2160h
+  renewBefore: 360h
+  dnsNames: [qdrant, qdrant.rag, qdrant.rag.svc, qdrant.rag.svc.cluster.local]
+  usages: [server auth, client auth]
+  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
+---
+# Certificat client presente par ingress-nginx au gateway (le gateway exige un certificat client)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: ingress-client, namespace: rag }
+spec:
+  secretName: ingress-client-tls
+  commonName: ingress-client
+  duration: 2160h
+  renewBefore: 360h
+  usages: [client auth]
+  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
