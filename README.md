@@ -1,6 +1,6 @@
 # Secure RAG pipeline on Kubernetes
 
-A DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into microservices on **Kubernetes (k3s)**, secured end to end, **without a service mesh**.
+A DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into microservices on **Kubernetes (k3s)**, secured end to end.
 
 - Each business service runs on **its own node, in its own private subnet**.
 - Services talk to each other over **mutual TLS**, with certificates issued by **cert-manager**.
