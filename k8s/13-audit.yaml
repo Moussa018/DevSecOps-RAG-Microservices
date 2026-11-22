@@ -1,0 +1,39 @@
+# audit-service : collecte des evenements de securite. Aucun acces a Internet, aucune sortie reseau.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: audit-service, namespace: rag }
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: audit-service, namespace: rag }
+spec:
+  replicas: 1   # stockage en memoire : un seul replica pour que la lecture voie tous les evenements
+  selector: { matchLabels: { app: audit-service } }
+  template:
+    metadata: { labels: { app: audit-service } }
+    spec:
+      serviceAccountName: audit-service
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: audit-service
+          image: audit-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8000 }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
+          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 5 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: tls, mountPath: /tls, readOnly: true }
+            - { name: jwt-public, mountPath: /jwt, readOnly: true }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: tls, secret: { secretName: audit-service-tls, defaultMode: 0440 } }
+        - { name: jwt-public, configMap: { name: jwt-public } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: audit-service, namespace: rag }
+spec: { selector: { app: audit-service }, ports: [{ name: https, port: 8000, targetPort: 8000 }] }

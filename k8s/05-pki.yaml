@@ -75,3 +75,29 @@ spec:
   usages: [server auth, client auth]
   privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
   issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: uaa-service, namespace: rag }
+spec:
+  secretName: uaa-service-tls
+  commonName: uaa-service
+  duration: 2160h
+  renewBefore: 360h
+  dnsNames: [uaa-service, uaa-service.rag, uaa-service.rag.svc, uaa-service.rag.svc.cluster.local]
+  usages: [server auth, client auth]
+  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: audit-service, namespace: rag }
+spec:
+  secretName: audit-service-tls
+  commonName: audit-service
+  duration: 2160h
+  renewBefore: 360h
+  dnsNames: [audit-service, audit-service.rag, audit-service.rag.svc, audit-service.rag.svc.cluster.local]
+  usages: [server auth, client auth]
+  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
