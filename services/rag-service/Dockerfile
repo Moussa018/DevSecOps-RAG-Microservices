@@ -12,7 +12,7 @@ COPY --from=build /install /usr/local
 COPY --from=build /models /models
 ENV HF_HUB_OFFLINE=1 FASTEMBED_CACHE_PATH=/models HF_HOME=/tmp/hf
 WORKDIR /app
-COPY app.py llm.py ./
+COPY app.py llm.py auth.py svc_client.py ./
 USER 65532
 EXPOSE 8000
 # TLS mutuel : le serveur exige un certificat client signe par la CA privee (--ssl-cert-reqs 2 = CERT_REQUIRED)
