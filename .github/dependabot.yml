@@ -1,0 +1,9 @@
+version: 2
+updates:
+  - { package-ecosystem: maven, directory: /services/gateway, schedule: { interval: weekly } }
+  - { package-ecosystem: pip, directory: /services/uaa-service, schedule: { interval: weekly } }
+  - { package-ecosystem: pip, directory: /services/audit-service, schedule: { interval: weekly } }
+  - { package-ecosystem: pip, directory: /services/ingestion-service, schedule: { interval: weekly } }
+  - { package-ecosystem: pip, directory: /services/rag-service, schedule: { interval: weekly } }
+  - { package-ecosystem: docker, directory: /services/gateway, schedule: { interval: weekly } }
+  - { package-ecosystem: github-actions, directory: /, schedule: { interval: weekly } }
