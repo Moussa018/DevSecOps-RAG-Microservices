@@ -1,0 +1,44 @@
+# uaa-service : seule autorite qui signe des JWT. La cle PRIVEE n'est montee que dans ce pod.
+# Aucun acces a Internet, aucune sortie reseau (voir 30-network-policies.yaml).
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: uaa-service, namespace: rag }
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: uaa-service, namespace: rag }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: uaa-service } }
+  template:
+    metadata: { labels: { app: uaa-service } }
+    spec:
+      serviceAccountName: uaa-service
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: uaa-service
+          image: uaa-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8000 }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
+          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 5 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: tls, mountPath: /tls, readOnly: true }
+            - { name: jwt-public, mountPath: /jwt, readOnly: true }
+            - { name: jwt-private, mountPath: /keys, readOnly: true }
+            - { name: config, mountPath: /config, readOnly: true }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: tls, secret: { secretName: uaa-service-tls, defaultMode: 0440 } }
+        - { name: jwt-public, configMap: { name: jwt-public } }
+        - { name: jwt-private, secret: { secretName: uaa-jwt-key, defaultMode: 0440 } }
+        - { name: config, secret: { secretName: uaa-config, defaultMode: 0440 } }   # users.json, clients.json
+---
+apiVersion: v1
+kind: Service
+metadata: { name: uaa-service, namespace: rag }
+spec: { selector: { app: uaa-service }, ports: [{ name: https, port: 8000, targetPort: 8000 }] }

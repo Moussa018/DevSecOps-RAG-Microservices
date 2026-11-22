@@ -6,10 +6,12 @@ import re
 import uuid
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 import llm
+from auth import Principal, require
+from svc_client import audit, mtls_client
 
 log = logging.getLogger("ingestion")
 QDRANT = os.getenv("QDRANT_URL", "https://qdrant:6333")
@@ -18,12 +20,8 @@ TLS_DIR = os.getenv("TLS_DIR", "/tls")
 
 
 def qdrant_client(timeout: int = 60) -> httpx.AsyncClient:
-    """Client TLS mutuel vers Qdrant : verifie le serveur avec la CA privee et presente son propre certificat."""
-    return httpx.AsyncClient(
-        timeout=timeout,
-        verify=f"{TLS_DIR}/ca.crt",
-        cert=(f"{TLS_DIR}/tls.crt", f"{TLS_DIR}/tls.key"),
-    )
+    """Client TLS mutuel vers Qdrant."""
+    return mtls_client(timeout)
 
 MAX_CHUNKS = int(os.getenv("MAX_CHUNKS", "100"))  # borne le cout de l'API externe par document
 
@@ -37,6 +35,10 @@ REDACTIONS = [
     (re.compile(r"\b(?:\d[ -]?){13,16}\b"), "[CARD]"),
     (re.compile(r"(?i)(password|passwd|secret|token|api[_-]?key)\s*[:=]\s*\S+"), r"\1=[REDACTED]"),
 ]
+
+
+# Controle de contenu (comme SecureDevOps : on rejette ce qui n'est pas du texte avant tout traitement)
+CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
 def redact(text: str) -> tuple[str, int]:
@@ -66,10 +68,15 @@ def health():
 
 
 @app.post("/documents")
-async def ingest(doc: Doc, x_user: str = Header(), x_groups: str = Header("")):
+async def ingest(doc: Doc, p: Principal = Depends(require("ingestion-service", {"gateway"}))):
     # L'appelant ne peut partager qu'avec des groupes dont il est membre
-    if not set(doc.allowed_groups) <= set(x_groups.split(",")):
+    if "INGEST" not in p.roles:
+        raise HTTPException(403, "role INGEST requis")
+    if not set(doc.allowed_groups) <= set(p.groups):
+        await audit("ingest.denied", p.user, reason="group_not_allowed")
         raise HTTPException(403, "groupe non autorise")
+    if CONTROL.search(doc.text):
+        raise HTTPException(400, "contenu binaire refuse")
     clean, redacted = redact(doc.text)
     parts = list(chunk(clean))
     if len(parts) > MAX_CHUNKS:
@@ -82,9 +89,9 @@ async def ingest(doc: Doc, x_user: str = Header(), x_groups: str = Header("")):
         raise HTTPException(502, "service d'embeddings indisponible")
     points = [
         {"id": str(uuid.uuid4()), "vector": v,
-         "payload": {"doc_id": doc_id, "title": doc.title, "chunk": n, "text": p,
-                     "groups": doc.allowed_groups, "owner": x_user}}
-        for n, (p, v) in enumerate(zip(parts, vectors))
+         "payload": {"doc_id": doc_id, "title": doc.title, "chunk": n, "text": part,
+                     "groups": doc.allowed_groups, "owner": p.user}}
+        for n, (part, v) in enumerate(zip(parts, vectors))
     ]
     async with qdrant_client() as c:
         # idempotent : un 409 (collection deja creee) est ignore
@@ -92,4 +99,5 @@ async def ingest(doc: Doc, x_user: str = Header(), x_groups: str = Header("")):
                     json={"vectors": {"size": llm.DIM, "distance": "Cosine"}})
         r = await c.put(f"{QDRANT}/collections/{COLLECTION}/points", json={"points": points})
         r.raise_for_status()
+    await audit("ingest.ok", p.user, doc_id=doc_id, chunks=len(points), redactions=redacted)
     return {"doc_id": doc_id, "chunks": len(points), "redactions": redacted}

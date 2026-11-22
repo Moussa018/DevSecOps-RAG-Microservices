@@ -4,8 +4,4 @@ target/
 *.pem
 *.key
 __pycache__/
-.terraform/
-*.tfstate
-*.tfstate.*
-terraform.tfvars
-crash.log
+.demo-credentials

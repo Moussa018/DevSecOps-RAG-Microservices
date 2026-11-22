@@ -6,6 +6,11 @@ server:
 spring.servlet.multipart.max-request-size: 1MB
 ingestion.url: ${INGESTION_URL:https://ingestion-service:8000}
 rag.url: ${RAG_URL:https://rag-service:8000}
+audit.url: ${AUDIT_URL:https://audit-service:8000}
+uaa.url: ${UAA_URL:https://uaa-service:8000}
+jwt.public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:/jwt/public.pem}
+gateway.client-id: ${CLIENT_ID:gateway}
+gateway.client-secret: ${CLIENT_SECRET}
 management:
   endpoints.web.exposure.include: health
   endpoint.health.probes.enabled: true

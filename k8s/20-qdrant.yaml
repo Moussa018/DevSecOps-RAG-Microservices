@@ -15,7 +15,6 @@ spec:
     metadata: { labels: { app: qdrant } }
     spec:
       serviceAccountName: qdrant
-      nodeSelector: { role: core }   # sous-reseau core, noeud serveur k3s
       securityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: qdrant

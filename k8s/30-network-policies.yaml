@@ -2,6 +2,7 @@
 # - ingestion-service et qdrant n'ont AUCUNE sortie vers Internet.
 # - rag-service est le seul pod autorise a sortir : en 443, vers des adresses publiques (API Anthropic).
 # - il n'existe AUCUNE regle entre ingestion-service et rag-service, dans aucun sens.
+# - uaa-service et audit-service ne sortent nulle part : ils ne font que repondre.
 # Une NetworkPolicy filtre par IP et par port, pas par nom d'hote : voir README, section 7.5.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -31,7 +32,27 @@ spec:
           podSelector: { matchLabels: { app.kubernetes.io/name: traefik } }
       ports: [{ port: 8080 }]
   egress:
-    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service] }] } }]
+    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service, uaa-service, audit-service] }] } }]
+      ports: [{ port: 8000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: uaa-service, namespace: rag }
+spec:
+  podSelector: { matchLabels: { app: uaa-service } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [gateway, ingestion-service, rag-service] }] } }]
+      ports: [{ port: 8000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: audit-service, namespace: rag }
+spec:
+  podSelector: { matchLabels: { app: audit-service } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [gateway, ingestion-service, rag-service] }] } }]
       ports: [{ port: 8000 }]
 ---
 apiVersion: networking.k8s.io/v1
@@ -41,11 +62,13 @@ spec:
   podSelector: { matchLabels: { app: ingestion-service } }
   policyTypes: [Ingress, Egress]
   ingress:
-    - from: [{ podSelector: { matchLabels: { app: gateway } } }]
+    - from: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [gateway] }] } }]
       ports: [{ port: 8000 }]
   egress:
-    - to: [{ podSelector: { matchLabels: { app: qdrant } } }]
+    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [qdrant] }] } }]
       ports: [{ port: 6333 }]
+    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [uaa-service, audit-service] }] } }]
+      ports: [{ port: 8000 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -54,11 +77,13 @@ spec:
   podSelector: { matchLabels: { app: rag-service } }
   policyTypes: [Ingress, Egress]
   ingress:
-    - from: [{ podSelector: { matchLabels: { app: gateway } } }]
+    - from: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [gateway] }] } }]
       ports: [{ port: 8000 }]
   egress:
-    - to: [{ podSelector: { matchLabels: { app: qdrant } } }]
+    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [qdrant] }] } }]
       ports: [{ port: 6333 }]
+    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [uaa-service, audit-service] }] } }]
+      ports: [{ port: 8000 }]
     # API Anthropic : Internet public uniquement, en 443. Reseaux prives et service de metadonnees exclus.
     - to:
         - ipBlock:

@@ -5,10 +5,12 @@ import os
 import re
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 import llm
+from auth import Principal, require
+from svc_client import audit, mtls_client
 
 log = logging.getLogger("rag")
 QDRANT = os.getenv("QDRANT_URL", "https://qdrant:6333")
@@ -17,12 +19,8 @@ TLS_DIR = os.getenv("TLS_DIR", "/tls")
 
 
 def qdrant_client(timeout: int = 60) -> httpx.AsyncClient:
-    """Client TLS mutuel vers Qdrant : verifie le serveur avec la CA privee et presente son propre certificat."""
-    return httpx.AsyncClient(
-        timeout=timeout,
-        verify=f"{TLS_DIR}/ca.crt",
-        cert=(f"{TLS_DIR}/tls.crt", f"{TLS_DIR}/tls.key"),
-    )
+    """Client TLS mutuel vers Qdrant."""
+    return mtls_client(timeout)
 
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -49,10 +47,13 @@ def health():
 
 
 @app.post("/query")
-async def query(q: Query, x_user: str = Header(), x_groups: str = Header("")):
+async def query(q: Query, p: Principal = Depends(require("rag-service", {"gateway"}))):
+    if "QUERY" not in p.roles:
+        raise HTTPException(403, "role QUERY requis")
     if INJECTION.search(q.question):
+        await audit("query.injection_blocked", p.user)
         raise HTTPException(400, "requete refusee (prompt injection suspectee)")
-    groups = [g for g in x_groups.split(",") if g]
+    groups = p.groups
     if not groups:
         raise HTTPException(403, "aucun groupe")
     try:
@@ -65,8 +66,9 @@ async def query(q: Query, x_user: str = Header(), x_groups: str = Header("")):
         s = await c.post(f"{QDRANT}/collections/{COLLECTION}/points/search", json={
             "vector": vector, "limit": 4, "with_payload": True,
             "filter": {"must": [{"key": "groups", "match": {"any": groups}}]}})
-        s.raise_for_status()
-    hits = s.json()["result"]
+        if s.status_code != 404:   # 404 : aucune collection, donc aucun document encore indexe
+            s.raise_for_status()
+    hits = [] if s.status_code == 404 else s.json()["result"]
     # Les documents recuperes sont des DONNEES non fiables : delimites et neutralises
     context = "\n".join(
         f"<doc id={i}>{INJECTION.sub('[removed]', h['payload']['text'])}</doc>" for i, h in enumerate(hits))
@@ -75,5 +77,6 @@ async def query(q: Query, x_user: str = Header(), x_groups: str = Header("")):
     except Exception:
         log.exception("echec de la generation")
         raise HTTPException(502, "service de generation indisponible")
+    await audit("query.ok", p.user, sources=len(hits))
     return {"answer": LEAK.sub("[REDACTED]", answer),
             "sources": [{"title": h["payload"]["title"], "score": h["score"]} for h in hits]}
