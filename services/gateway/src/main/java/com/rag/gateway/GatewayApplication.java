@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -22,7 +23,12 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Point d'entree unique : valide le JWT, applique les roles, puis transmet l'identite aux services
@@ -54,7 +60,7 @@ public class GatewayApplication {
     public static void main(String[] args) { SpringApplication.run(GatewayApplication.class, args); }
 
     @PostMapping("/documents")  // role INGEST
-    Map<?, ?> ingest(@RequestBody Map<String, Object> body, Jwt jwt) {
+    Map<?, ?> ingest(@RequestBody Map<String, Object> body, @AuthenticationPrincipal Jwt jwt) {
         return ingestion.post().uri("/documents")
             .header("X-User", jwt.getSubject())
             .header("X-Groups", String.join(",", groups(jwt)))
@@ -62,11 +68,26 @@ public class GatewayApplication {
     }
 
     @PostMapping("/query")  // role QUERY
-    Map<?, ?> query(@RequestBody Map<String, Object> body, Jwt jwt) {
+    Map<?, ?> query(@RequestBody Map<String, Object> body, @AuthenticationPrincipal Jwt jwt) {
         return rag.post().uri("/query")
             .header("X-User", jwt.getSubject())
             .header("X-Groups", String.join(",", groups(jwt)))
             .body(body).retrieve().body(Map.class);
+    }
+
+    /** Relaie tel quel un refus 4xx des services internes (ex. 403 ABAC) ; une panne interne devient 502 sans detail. */
+    @ExceptionHandler(RestClientResponseException.class)
+    ResponseEntity<String> downstream(RestClientResponseException e) {
+        if (e.getStatusCode().is4xxClientError()) {
+            return ResponseEntity.status(e.getStatusCode()).contentType(MediaType.APPLICATION_JSON)
+                .body(e.getResponseBodyAsString());
+        }
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+    }
+
+    @ExceptionHandler(ResourceAccessException.class)
+    ResponseEntity<Void> unreachable(ResourceAccessException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
     }
 
     private static List<String> groups(Jwt jwt) {
@@ -79,6 +100,7 @@ public class GatewayApplication {
         http.csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/actuator/health/**").permitAll()
+                .requestMatchers("/error").permitAll()  // sinon toute erreur interne est masquee en 403
                 .requestMatchers("/api/documents").hasAuthority("ROLE_INGEST")
                 .requestMatchers("/api/query").hasAuthority("ROLE_QUERY")
                 .anyRequest().denyAll())
