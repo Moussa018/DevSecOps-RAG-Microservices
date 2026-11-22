@@ -1,4 +1,4 @@
-# Secure RAG microservices on Kubernetes (no cloud provider)
+# Secure RAG microservices on Kubernetes
 
 A DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into **five microservices plus a vector database**, running on **Kubernetes (k3s)**, secured end to end, 
 
