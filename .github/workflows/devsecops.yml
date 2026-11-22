@@ -34,12 +34,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dependency-check/Dependency-Check_Action@main
+      - uses: dependency-check/Dependency-Check_Action@1.1.0
         with: { project: rag-secure, path: ., format: HTML, args: "--failOnCVSS 9 --enableRetired" }
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: dependency-check-report, path: reports }
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with: { scan-type: fs, scanners: "vuln,misconfig", severity: "CRITICAL,HIGH", ignore-unfixed: true, trivyignores: .trivyignore, exit-code: "1" }
 
   # 4. Tests de la chaine JWT
@@ -60,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t ${{ matrix.service }}:ci services/${{ matrix.service }}
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: "${{ matrix.service }}:ci", severity: CRITICAL, ignore-unfixed: true, exit-code: "1" }
 
   # 6. DAST : OWASP ZAP contre le gateway demarre dans la CI (cle publique ephemere)
