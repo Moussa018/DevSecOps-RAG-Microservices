@@ -32,9 +32,11 @@ spec:
           readinessProbe: { tcpSocket: { port: 6333 }, initialDelaySeconds: 5 }
           volumeMounts:
             - { name: data, mountPath: /qdrant/storage }
+            - { name: snapshots, mountPath: /qdrant/snapshots }   # le repertoire de l'image appartient a root
             - { name: tls, mountPath: /tls, readOnly: true }
       volumes:
         - { name: data, emptyDir: {} }   # PVC chiffre en production
+        - { name: snapshots, emptyDir: {} }
         - { name: tls, secret: { secretName: qdrant-tls, defaultMode: 0440 } }
 ---
 apiVersion: v1
