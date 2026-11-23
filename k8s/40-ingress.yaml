@@ -12,13 +12,26 @@ spec:
   buffering:
     maxRequestBodyBytes: 1048576
 ---
+# Plain HTTP is only used to send the browser to HTTPS (host port 8443 on k3d).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: to-https, namespace: rag }
+spec:
+  redirectScheme:
+    scheme: https
+    port: "8443"
+    permanent: true
+---
+# Browser -> Traefik over HTTPS (certificate web-tls from the private CA), then Traefik -> gateway over TLS.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata: { name: api, namespace: rag }
 spec:
-  entryPoints: [web]
+  entryPoints: [websecure]
+  tls:
+    secretName: web-tls
   routes:
-    - match: PathPrefix(`/api`)
+    - match: PathPrefix(`/api`) || Path(`/`) || Path(`/index.html`) || Path(`/app.css`) || Path(`/app.js`)
       kind: Rule
       middlewares: [{ name: limit-body }]
       services:
@@ -26,3 +39,16 @@ spec:
           port: 8080
           scheme: https
           serversTransport: gateway-transport
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: api-redirect, namespace: rag }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: PathPrefix(`/`)
+      kind: Rule
+      middlewares: [{ name: to-https }]
+      services:
+        - name: gateway
+          port: 8080

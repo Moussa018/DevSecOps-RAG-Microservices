@@ -1,0 +1,27 @@
+# Pod that impersonates the gateway (label app=gateway, so the NetworkPolicy lets it reach rag-service)
+# but has no client certificate: the mutual TLS handshake must fail.
+#   kubectl apply -f tests/cluster/mtls-test.yaml
+#   kubectl -n rag wait --for=jsonpath='{.status.phase}'=Succeeded pod/mtls-test --timeout=90s
+#   kubectl -n rag logs mtls-test
+#   kubectl -n rag delete pod mtls-test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mtls-test
+  namespace: rag
+  labels: { app: gateway }
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      command: ["sh", "-c"]
+      args:
+        - |
+          sleep 15   # let the NetworkPolicy controller program the rules for this new pod
+          curl -sv --max-time 5 -k https://rag-service:8000/query 2>&1 | grep -E "Request CERT|alert|certificate required|reset|< HTTP/|SSL_read|Recv failure"
+          echo "curl termine"
+      securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+      resources: { limits: { cpu: 100m, memory: 64Mi } }

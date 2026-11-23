@@ -22,41 +22,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          pip install semgrep
-          semgrep --config=p/java --config=p/python --config=p/jwt --config=p/secrets \
-            --config=p/kubernetes --config=p/dockerfile --error --severity=ERROR .
+      - name: Semgrep (Java, JWT, secrets, Kubernetes, Dockerfile)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.97.0 semgrep --metrics=off \
+            --config=p/java --config=p/jwt --config=p/secrets --config=p/kubernetes --config=p/dockerfile \
+            --exclude=report --error --severity=ERROR .
 
   sca:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dependency-check/Dependency-Check_Action@1.1.0
-        with: { project: rag-secure, path: ., format: HTML, args: "--failOnCVSS 9 --enableRetired" }
+        with: { project: rag-secure, path: ., format: HTML, args: "--failOnCVSS 9 --enableRetired --exclude **/report/**" }
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: dependency-check-report, path: reports }
       - uses: aquasecurity/trivy-action@v0.36.0
-        with: { scan-type: fs, scanners: "vuln,misconfig", severity: "CRITICAL,HIGH", ignore-unfixed: true, trivyignores: .trivyignore, exit-code: "1" }
+        with: { scan-type: fs, scanners: "vuln,misconfig", severity: "CRITICAL,HIGH", ignore-unfixed: true, trivyignores: .trivyignore, skip-dirs: "report", exit-code: "1" }
 
   tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -r tests/requirements.txt && pytest tests -q
+      - uses: actions/setup-java@v4
+        with: { java-version: "21", distribution: temurin, cache: maven }
+      - name: Security tests of the four Java microservices (JUnit)
+        run: mvn -B verify
 
   images:
     needs: [secrets, sast, sca, tests]
     runs-on: ubuntu-latest
     strategy:
-      matrix: { service: [gateway, uaa-service, audit-service, ingestion-service, rag-service] }
+      matrix: { service: [gateway, uaa-service, ingestion-service, rag-service] }
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t ${{ matrix.service }}:ci services/${{ matrix.service }}
+      - run: docker build -t ${{ matrix.service }}:ci -f services/${{ matrix.service }}/Dockerfile .
       - uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: "${{ matrix.service }}:ci", severity: CRITICAL, ignore-unfixed: true, exit-code: "1" }
+      - name: SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with: { image-ref: "${{ matrix.service }}:ci", format: cyclonedx, output: "sbom-${{ matrix.service }}.cdx.json" }
+      - uses: actions/upload-artifact@v4
+        with: { name: "sbom-${{ matrix.service }}", path: "sbom-${{ matrix.service }}.cdx.json" }
 
   dast:
     needs: images
@@ -68,8 +75,8 @@ jobs:
           mkdir -p jwt
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out k.pem
           openssl pkey -in k.pem -pubout -out jwt/public.pem
-          docker build -t gw services/gateway
-          docker run -d --name gw -p 8080:8080 -v "$PWD/jwt:/jwt:ro" -e CLIENT_SECRET=$(openssl rand -hex 16) gw
+          docker build -t gw -f services/gateway/Dockerfile .
+          docker run -d --name gw -p 8080:8080 -v "$PWD/jwt:/jwt:ro" gw
           for i in $(seq 1 30); do curl -sf localhost:8080/actuator/health && break || sleep 3; done
       - uses: zaproxy/action-baseline@v0.15.0
         with: { target: "http://localhost:8080", fail_action: false, allow_issue_writing: false }

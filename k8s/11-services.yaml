@@ -1,3 +1,4 @@
+# ingestion-service and rag-service (Java, Spring Boot). Mutual TLS on port 8000, JWT verified with the public key.
 apiVersion: v1
 kind: ServiceAccount
 metadata: { name: ingestion-service, namespace: rag }
@@ -19,15 +20,13 @@ spec:
           image: ingestion-service:latest
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8000 }]
-          envFrom: [{ configMapRef: { name: rag-config } }]
           env:
+            - { name: SPRING_PROFILES_ACTIVE, value: tls }
             - { name: QDRANT_URL, value: "https://qdrant:6333" }
-            - { name: CLIENT_ID, value: ingestion-service }
-            - { name: CLIENT_SECRET, valueFrom: { secretKeyRef: { name: ingestion-service-client, key: secret } } }
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
-          resources: { requests: { cpu: 200m, memory: 768Mi }, limits: { cpu: "1", memory: 1536Mi } }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
           readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
-          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 30 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 40 }
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: tls, mountPath: /tls, readOnly: true }
@@ -65,14 +64,13 @@ spec:
           ports: [{ containerPort: 8000 }]
           envFrom: [{ configMapRef: { name: rag-config } }]
           env:
+            - { name: SPRING_PROFILES_ACTIVE, value: tls }
             - { name: QDRANT_URL, value: "https://qdrant:6333" }
-            - { name: CLIENT_ID, value: rag-service }
-            - { name: CLIENT_SECRET, valueFrom: { secretKeyRef: { name: rag-service-client, key: secret } } }
-            - { name: ANTHROPIC_API_KEY, valueFrom: { secretKeyRef: { name: anthropic-api-key, key: key, optional: true } } }
+            - { name: GROQ_API_KEY, valueFrom: { secretKeyRef: { name: groq-api-key, key: key, optional: true } } }
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
-          resources: { requests: { cpu: 200m, memory: 768Mi }, limits: { cpu: "1", memory: 1536Mi } }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
           readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
-          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 30 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 40 }
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: tls, mountPath: /tls, readOnly: true }

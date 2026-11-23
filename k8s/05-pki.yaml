@@ -83,16 +83,19 @@ spec:
   usages: [server auth, client auth]
   privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
   issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }
+
 ---
+# Certificate presented to the browser by Traefik (HTTPS entry point).
 apiVersion: cert-manager.io/v1
 kind: Certificate
-metadata: { name: audit-service, namespace: rag }
+metadata: { name: web, namespace: rag }
 spec:
-  secretName: audit-service-tls
-  commonName: audit-service
+  secretName: web-tls
+  commonName: localhost
   duration: 2160h
   renewBefore: 360h
-  dnsNames: [audit-service, audit-service.rag, audit-service.rag.svc, audit-service.rag.svc.cluster.local]
-  usages: [server auth, client auth]
-  privateKey: { algorithm: RSA, size: 2048, encoding: PKCS8, rotationPolicy: Always }
+  dnsNames: [localhost]
+  ipAddresses: [127.0.0.1]
+  usages: [server auth]
+  privateKey: { algorithm: ECDSA, size: 256, rotationPolicy: Always }
   issuerRef: { name: rag-ca, kind: Issuer, group: cert-manager.io }

@@ -25,8 +25,6 @@ spec:
           ports: [{ containerPort: 8080 }]
           env:
             - { name: SPRING_PROFILES_ACTIVE, value: tls }
-            - { name: CLIENT_ID, value: gateway }
-            - { name: CLIENT_SECRET, valueFrom: { secretKeyRef: { name: gateway-client, key: secret } } }
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
