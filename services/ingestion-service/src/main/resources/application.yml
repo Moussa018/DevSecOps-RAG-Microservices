@@ -1,0 +1,11 @@
+spring.application.name: ingestion-service
+server:
+  port: 8000
+  server-header: ""
+  max-http-request-header-size: 8KB
+  error: { include-message: never, include-stacktrace: never }
+spring.servlet.multipart.max-request-size: 1MB
+jwt.public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:/jwt/public.pem}
+qdrant.url: ${QDRANT_URL:https://qdrant:6333}
+management:
+  endpoints.web.exposure.include: health
