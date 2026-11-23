@@ -1,5 +1,3 @@
-# Qdrant (base vectorielle) en TLS mutuel : seuls les clients presentant un certificat de la CA privee sont acceptes.
-# Image tierce : epingler par digest en production.
 apiVersion: v1
 kind: ServiceAccount
 metadata: { name: qdrant, namespace: rag }
@@ -31,10 +29,10 @@ spec:
           readinessProbe: { tcpSocket: { port: 6333 }, initialDelaySeconds: 5 }
           volumeMounts:
             - { name: data, mountPath: /qdrant/storage }
-            - { name: snapshots, mountPath: /qdrant/snapshots }   # le repertoire de l'image appartient a root
+            - { name: snapshots, mountPath: /qdrant/snapshots }
             - { name: tls, mountPath: /tls, readOnly: true }
       volumes:
-        - { name: data, emptyDir: {} }   # PVC chiffre en production
+        - { name: data, emptyDir: {} }
         - { name: snapshots, emptyDir: {} }
         - { name: tls, secret: { secretName: qdrant-tls, defaultMode: 0440 } }
 ---

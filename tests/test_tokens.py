@@ -1,4 +1,3 @@
-"""Tests de la chaine JWT : login, jeton de service, echange, verification par audit-service."""
 import hashlib
 import importlib.util
 import json
@@ -89,7 +88,7 @@ def test_exchange_keeps_identity_and_audience(env):
 def test_exchange_refused_for_wrong_client_or_audience(env):
     uaa = env[0]
     user_tok = login(uaa).json()["access_token"]
-    assert exchange(uaa, user_tok, cid="rag-service", secret="rag").status_code == 403   # pas le droit d'echanger
+    assert exchange(uaa, user_tok, cid="rag-service", secret="rag").status_code == 403
     assert exchange(uaa, user_tok, secret="wrong").status_code == 401
     assert exchange(uaa, user_tok, aud="uaa-service").status_code == 403
     assert exchange(uaa, "garbage").status_code == 401
@@ -125,7 +124,7 @@ def test_audit_read_needs_admin_exchange(env):
 
 def test_token_for_other_audience_or_forged_is_rejected(env):
     uaa, audit, d, key = env
-    rag_tok = exchange(uaa, login(uaa).json()["access_token"]).json()["access_token"]   # aud=rag-service
+    rag_tok = exchange(uaa, login(uaa).json()["access_token"]).json()["access_token"]
     assert audit.get("/events", headers={"Authorization": f"Bearer {rag_tok}"}).status_code == 401
     now = int(time.time())
     forged = jwt.encode({"iss": "uaa-service", "iat": now, "exp": now + 60, "sub": "root", "aud": "audit-service",

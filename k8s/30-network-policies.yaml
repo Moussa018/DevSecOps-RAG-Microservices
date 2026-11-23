@@ -1,9 +1,3 @@
-# Zero-trust reseau entre pods : tout est interdit, puis des flux explicites.
-# - ingestion-service et qdrant n'ont AUCUNE sortie vers Internet.
-# - rag-service est le seul pod autorise a sortir : en 443, vers des adresses publiques (API Anthropic).
-# - il n'existe AUCUNE regle entre ingestion-service et rag-service, dans aucun sens.
-# - uaa-service et audit-service ne sortent nulle part : ils ne font que repondre.
-# Une NetworkPolicy filtre par IP et par port, pas par nom d'hote : voir README, section 7.5.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: { name: default-deny-all, namespace: rag }
@@ -26,7 +20,6 @@ spec:
   podSelector: { matchLabels: { app: gateway } }
   policyTypes: [Ingress, Egress]
   ingress:
-    # uniquement Traefik (ingress integre a k3s, namespace kube-system)
     - from:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
           podSelector: { matchLabels: { app.kubernetes.io/name: traefik } }
@@ -84,7 +77,6 @@ spec:
       ports: [{ port: 6333 }]
     - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [uaa-service, audit-service] }] } }]
       ports: [{ port: 8000 }]
-    # API Anthropic : Internet public uniquement, en 443. Reseaux prives et service de metadonnees exclus.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
@@ -96,7 +88,7 @@ kind: NetworkPolicy
 metadata: { name: qdrant, namespace: rag }
 spec:
   podSelector: { matchLabels: { app: qdrant } }
-  policyTypes: [Ingress, Egress]   # aucune regle Egress : qdrant ne sort nulle part
+  policyTypes: [Ingress, Egress]
   ingress:
     - from: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [ingestion-service, rag-service] }] } }]
       ports: [{ port: 6333 }]

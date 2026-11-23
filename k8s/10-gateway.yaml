@@ -20,11 +20,11 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: gateway
-          image: gateway:latest      # en CI : reference par digest signe (cosign)
+          image: gateway:latest
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8080 }]
           env:
-            - { name: SPRING_PROFILES_ACTIVE, value: tls }   # TLS (application-tls.yml)
+            - { name: SPRING_PROFILES_ACTIVE, value: tls }
             - { name: CLIENT_ID, value: gateway }
             - { name: CLIENT_SECRET, valueFrom: { secretKeyRef: { name: gateway-client, key: secret } } }
           securityContext:
@@ -34,13 +34,12 @@ spec:
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits: { cpu: 500m, memory: 512Mi }
-          # Sondes TCP : le kubelet ne peut pas presenter de certificat client
           readinessProbe: { tcpSocket: { port: 8080 }, initialDelaySeconds: 15 }
           livenessProbe: { tcpSocket: { port: 8080 }, initialDelaySeconds: 30 }
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: tls, mountPath: /tls, readOnly: true }
-            - { name: jwt-public, mountPath: /jwt, readOnly: true }   # cle PUBLIQUE de uaa-service
+            - { name: jwt-public, mountPath: /jwt, readOnly: true }
       volumes:
         - { name: tmp, emptyDir: {} }
         - { name: tls, secret: { secretName: gateway-tls, defaultMode: 0440 } }

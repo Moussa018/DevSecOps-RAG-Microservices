@@ -1,11 +1,3 @@
-"""uaa-service : seule autorite qui signe des JWT (RS256).
-
-- POST /auth/login     : utilisateur + mot de passe -> jeton utilisateur (aud=rag-gateway, 15 min)
-- POST /auth/token     : un service (client_credentials) -> jeton de service pour UNE audience autorisee (5 min)
-- POST /auth/exchange  : le gateway echange le jeton utilisateur contre un jeton pour UN service cible (2 min),
-                         qui conserve l'identite de l'utilisateur et porte `act.sub` = gateway (RFC 8693)
-La cle privee n'est montee que dans ce pod. Les autres services ne connaissent que la cle publique.
-"""
 import hashlib
 import hmac
 import json
@@ -29,8 +21,6 @@ GATEWAY_AUD = "rag-gateway"
 PRIVATE_KEY = open(os.getenv("JWT_PRIVATE_KEY", "/keys/private.pem")).read()
 USERS: dict = json.load(open(os.getenv("USERS_FILE", "/config/users.json")))
 CLIENTS: dict = json.load(open(os.getenv("CLIENTS_FILE", "/config/clients.json")))
-# format USERS   : {"alice": {"password": "pbkdf2_sha256$<iter>$<salt hex>$<hash hex>", "roles": [...], "groups": [...]}}
-# format CLIENTS : {"gateway": {"secret_sha256": "<hex>", "audiences": [...], "exchange": [...]}}
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 _fails: dict[str, deque] = defaultdict(deque)
@@ -55,7 +45,6 @@ def check_password(stored: str, password: str) -> bool:
 def authenticate_client(client_id: str, secret: str) -> dict:
     c = CLIENTS.get(client_id)
     digest = hashlib.sha256(secret.encode()).hexdigest()
-    # comparaison en temps constant, meme pour un client inconnu
     if not hmac.compare_digest(digest, (c or {}).get("secret_sha256", "0" * 64)) or c is None:
         log.warning(json.dumps({"event": "client_auth_failed", "client": client_id[:64]}))
         raise HTTPException(401, "client invalide")
@@ -84,11 +73,11 @@ def health():
 
 @app.post("/auth/login")
 def login(body: Login):
-    key = body.username   # l'adresse source est celle du gateway : inutile pour distinguer les clients
+    key = body.username
     q, now = _fails[key], time.time()
     while q and q[0] < now - 60:
         q.popleft()
-    if len(q) >= 5:  # 5 echecs par minute et par utilisateur (par replica)
+    if len(q) >= 5:
         raise HTTPException(429, "trop de tentatives")
     u = USERS.get(body.username)
     ok = check_password((u or {}).get("password", _DUMMY), body.password) and u is not None

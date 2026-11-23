@@ -1,10 +1,3 @@
-"""audit-service : collecte les evenements de securite des autres services.
-
-Ecriture : jeton de service (scope audit:write) emis a gateway, ingestion-service ou rag-service.
-Lecture  : jeton echange par le gateway pour un utilisateur ayant le role ADMIN.
-Chaque evenement est aussi ecrit en JSON sur stdout (collecte par le runtime). Les derniers evenements sont
-gardes en memoire : en production, utiliser un stockage durable et append-only.
-"""
 import json
 import logging
 import time

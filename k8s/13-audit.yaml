@@ -1,4 +1,3 @@
-# audit-service : collecte des evenements de securite. Aucun acces a Internet, aucune sortie reseau.
 apiVersion: v1
 kind: ServiceAccount
 metadata: { name: audit-service, namespace: rag }
@@ -8,7 +7,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: { name: audit-service, namespace: rag }
 spec:
-  replicas: 1   # stockage en memoire : un seul replica pour que la lecture voie tous les evenements
+  replicas: 1
   selector: { matchLabels: { app: audit-service } }
   template:
     metadata: { labels: { app: audit-service } }

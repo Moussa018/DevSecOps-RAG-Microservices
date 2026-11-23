@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""Genere TOUS les secrets de la demo et les ecrit en JSON (kubectl List) sur stdout. Rien n'est commite.
-
-  python scripts/gen-secrets.py | kubectl -n rag apply -f -
-
-Produit : paire de cles RSA de uaa-service (privee -> Secret, publique -> ConfigMap), utilisateurs de demo
-(mots de passe hashes PBKDF2), secrets clients des services (seul leur SHA-256 va chez uaa-service).
-Les mots de passe de demo sont ecrits dans .demo-credentials (ignore par git). Necessite : python3, openssl.
-"""
 import hashlib
 import json
 import os
@@ -47,7 +39,6 @@ users_json = {u: {"password": pbkdf2(passwords[u]), "roles": r, "groups": g} for
 client_secrets = {c: secrets.token_urlsafe(32) for c in ("gateway", "ingestion-service", "rag-service")}
 sha = lambda s: hashlib.sha256(s.encode()).hexdigest()
 clients_json = {
-    # le gateway peut echanger un jeton utilisateur pour ces services, et rien d'autre
     "gateway": {"secret_sha256": sha(client_secrets["gateway"]), "audiences": [],
                 "exchange": ["ingestion-service", "rag-service", "audit-service"]},
     "ingestion-service": {"secret_sha256": sha(client_secrets["ingestion-service"]), "audiences": ["audit-service"], "exchange": []},

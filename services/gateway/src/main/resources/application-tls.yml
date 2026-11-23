@@ -1,4 +1,3 @@
-# Profil "tls" (active dans Kubernetes). Les certificats viennent de cert-manager, montes dans /tls.
 server:
   ssl:
     enabled: true
@@ -8,7 +7,7 @@ spring:
     bundle:
       pem:
         tls:
-          reload-on-update: true   # recharge a chaud apres renouvellement du certificat
+          reload-on-update: true
           keystore:
             certificate: file:/tls/tls.crt
             private-key: file:/tls/tls.key
@@ -16,4 +15,4 @@ spring:
             certificate: file:/tls/ca.crt
 gateway:
   tls:
-    bundle: tls                # utilise aussi pour les appels sortants vers ingestion et rag
+    bundle: tls

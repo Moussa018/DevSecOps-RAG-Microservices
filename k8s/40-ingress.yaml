@@ -1,11 +1,8 @@
-# Entree unique : Traefik, l'ingress integre a k3s (port 80 du noeud serveur).
-# Traefik re-chiffre vers le gateway en TLS et verifie son certificat avec la CA privee.
-# Prerequis : le Secret "backend-ca" (cle tls.ca) est cree par les scripts de deploiement a partir de rag-ca.
 apiVersion: traefik.io/v1alpha1
 kind: ServersTransport
 metadata: { name: gateway-transport, namespace: rag }
 spec:
-  serverName: gateway.rag.svc          # nom verifie dans le certificat du gateway
+  serverName: gateway.rag.svc
   rootCAsSecrets: [backend-ca]
 ---
 apiVersion: traefik.io/v1alpha1
@@ -13,7 +10,7 @@ kind: Middleware
 metadata: { name: limit-body, namespace: rag }
 spec:
   buffering:
-    maxRequestBodyBytes: 1048576       # 1 Mo
+    maxRequestBodyBytes: 1048576
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute

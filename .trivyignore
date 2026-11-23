@@ -1,3 +1,1 @@
-# Exceptions assumees (projet academique). Chaque ligne est justifiee ; a retirer en production.
-# Qdrant est une image tierce qui ecrit sur son volume ; readOnlyRootFilesystem non applicable
 KSV-0014

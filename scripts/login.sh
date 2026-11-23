@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Obtient un JWT utilisateur aupres de uaa-service (via le gateway : POST /api/auth/login).
-#   scripts/login.sh alice            -> affiche le jeton
-#   TOKEN=$(scripts/login.sh alice)
 set -euo pipefail
 PY=python3; python3 -c "" >/dev/null 2>&1 || PY=python
 user="${1:?usage: login.sh <user>}"

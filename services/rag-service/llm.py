@@ -1,9 +1,3 @@
-"""Embeddings (dans le service) et generation (API Anthropic).
-
-- Embeddings : calcules localement, avec un modele integre a l'image au build. Aucun appel externe.
-- Generation : API Anthropic, appelee uniquement par ce service. La cle vient de ANTHROPIC_API_KEY
-  (Secret Kubernetes monte dans ce pod seulement). Le mode 'fake' permet de tester sans cle.
-"""
 import hashlib
 import math
 import os
@@ -14,8 +8,8 @@ BACKEND = os.getenv("LLM_BACKEND", "anthropic")
 LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "claude-haiku-5-5")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 MODEL_DIR = os.getenv("FASTEMBED_CACHE_PATH", "/models")
-DIM = 384  # dimension du modele ; a changer = recreer la collection Qdrant. Meme modele dans ingestion ET rag.
-MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "512"))  # borne le cout de chaque reponse
+DIM = 384
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "512"))
 
 _model = None
 _client = None
@@ -23,7 +17,6 @@ _lock = threading.Lock()
 
 
 def _fake_embed(text: str) -> list[float]:
-    """Sac de mots hache : deux textes qui partagent des mots ont des vecteurs proches."""
     vec = [0.0] * DIM
     for word in re.findall(r"\w+", text.lower()):
         vec[int(hashlib.md5(word.encode()).hexdigest(), 16) % DIM] += 1.0
@@ -47,7 +40,7 @@ def _get_client():
         if _client is None:
             import anthropic
 
-            _client = anthropic.Anthropic(timeout=60.0, max_retries=2)  # lit ANTHROPIC_API_KEY
+            _client = anthropic.Anthropic(timeout=60.0, max_retries=2)
         return _client
 
 

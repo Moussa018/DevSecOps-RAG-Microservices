@@ -1,4 +1,3 @@
-"""Client de service : obtient un jeton aupres de uaa-service (client_credentials) et publie des evenements d'audit."""
 import asyncio
 import logging
 import os
@@ -37,7 +36,6 @@ async def token_for(audience: str) -> str:
 
 
 async def audit(event: str, user: str | None, **detail) -> None:
-    """Best effort : une panne d'audit ne doit pas bloquer le metier (choix documente dans le README)."""
     try:
         tok = await token_for("audit-service")
         async with mtls_client(5) as c:

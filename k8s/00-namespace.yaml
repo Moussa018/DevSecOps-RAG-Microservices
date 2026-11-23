@@ -3,5 +3,4 @@ kind: Namespace
 metadata:
   name: rag
   labels:
-    # Pas de sidecar : le niveau "restricted" s'applique sans exception
     pod-security.kubernetes.io/enforce: restricted

@@ -1,7 +1,3 @@
-"""Embeddings calcules DANS le service : aucun appel externe, aucun acces Internet requis.
-
-Le modele est integre a l'image au build (voir Dockerfile). Le mode 'fake' permet de tester sans modele.
-"""
 import hashlib
 import math
 import os
@@ -11,14 +7,13 @@ import threading
 BACKEND = os.getenv("LLM_BACKEND", "anthropic")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 MODEL_DIR = os.getenv("FASTEMBED_CACHE_PATH", "/models")
-DIM = 384  # dimension du modele ; a changer = recreer la collection Qdrant. Meme modele dans ingestion ET rag.
+DIM = 384
 
 _model = None
 _lock = threading.Lock()
 
 
 def _fake_embed(text: str) -> list[float]:
-    """Sac de mots hache : deux textes qui partagent des mots ont des vecteurs proches."""
     vec = [0.0] * DIM
     for word in re.findall(r"\w+", text.lower()):
         vec[int(hashlib.md5(word.encode()).hexdigest(), 16) % DIM] += 1.0

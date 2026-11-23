@@ -1,4 +1,3 @@
-"""Ingestion : nettoie (secrets/PII), decoupe, vectorise (modele local) et stocke avec ACL."""
 import asyncio
 import logging
 import os
@@ -20,14 +19,12 @@ TLS_DIR = os.getenv("TLS_DIR", "/tls")
 
 
 def qdrant_client(timeout: int = 60) -> httpx.AsyncClient:
-    """Client TLS mutuel vers Qdrant."""
     return mtls_client(timeout)
 
-MAX_CHUNKS = int(os.getenv("MAX_CHUNKS", "100"))  # borne le cout de l'API externe par document
+MAX_CHUNKS = int(os.getenv("MAX_CHUNKS", "100"))
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
-# Donnees sensibles a masquer AVANT indexation ET avant tout envoi a l'API externe
 REDACTIONS = [
     (re.compile(r"AKIA[0-9A-Z]{16}"), "[AWS_KEY]"),
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S), "[PRIVATE_KEY]"),
@@ -37,7 +34,6 @@ REDACTIONS = [
 ]
 
 
-# Controle de contenu (comme SecureDevOps : on rejette ce qui n'est pas du texte avant tout traitement)
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
@@ -59,7 +55,7 @@ def chunk(text: str, size=800, overlap=100):
 class Doc(BaseModel):
     title: str = Field(max_length=200)
     text: str = Field(max_length=200_000)
-    allowed_groups: list[str] = Field(min_length=1, max_length=20)  # ACL obligatoire
+    allowed_groups: list[str] = Field(min_length=1, max_length=20)
 
 
 @app.get("/healthz")
@@ -69,7 +65,6 @@ def health():
 
 @app.post("/documents")
 async def ingest(doc: Doc, p: Principal = Depends(require("ingestion-service", {"gateway"}))):
-    # L'appelant ne peut partager qu'avec des groupes dont il est membre
     if "INGEST" not in p.roles:
         raise HTTPException(403, "role INGEST requis")
     if not set(doc.allowed_groups) <= set(p.groups):
@@ -94,7 +89,6 @@ async def ingest(doc: Doc, p: Principal = Depends(require("ingestion-service", {
         for n, (part, v) in enumerate(zip(parts, vectors))
     ]
     async with qdrant_client() as c:
-        # idempotent : un 409 (collection deja creee) est ignore
         await c.put(f"{QDRANT}/collections/{COLLECTION}",
                     json={"vectors": {"size": llm.DIM, "distance": "Cosine"}})
         r = await c.put(f"{QDRANT}/collections/{COLLECTION}/points", json={"points": points})
