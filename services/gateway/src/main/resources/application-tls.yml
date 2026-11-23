@@ -13,6 +13,6 @@ spring:
             private-key: file:/tls/tls.key
           truststore:
             certificate: file:/tls/ca.crt
-gateway:
+app:
   tls:
     bundle: tls

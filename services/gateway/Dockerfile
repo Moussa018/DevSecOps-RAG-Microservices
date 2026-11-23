@@ -1,13 +1,12 @@
+# Build context: repository root (docker build -f services/gateway/Dockerfile .)
 FROM maven:3.9-eclipse-temurin-21 AS build
-WORKDIR /app
+WORKDIR /src
 COPY pom.xml .
-RUN mvn -q -B dependency:go-offline
-COPY src ./src
-RUN mvn -q -B package -DskipTests
+COPY services services
+RUN --mount=type=cache,target=/root/.m2 mvn -q -B -pl services/gateway -am -DskipTests package
 
 FROM gcr.io/distroless/java21-debian13:nonroot
-WORKDIR /app
-COPY --from=build /app/target/gateway-1.0.0.jar app.jar
+COPY --from=build /src/services/gateway/target/gateway-1.0.0.jar /app/app.jar
 USER nonroot
 EXPOSE 8080
-ENTRYPOINT ["java","-XX:MaxRAMPercentage=75","-jar","/app/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]

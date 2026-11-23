@@ -1,21 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- gateway: the only entry point. Serves the web UI, checks the JWT and the role, forwards over mutual TLS. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.1.2</version>
+    <groupId>com.rag</groupId>
+    <artifactId>rag-secure</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../../pom.xml</relativePath>
   </parent>
-  <groupId>com.rag</groupId>
   <artifactId>gateway</artifactId>
-  <version>1.0.0</version>
-  <properties><java.version>21</java.version></properties>
   <dependencies>
-    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>
-    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-restclient</artifactId></dependency>
-    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId></dependency>
-    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
-    <dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId></dependency>
+    <dependency><groupId>com.rag</groupId><artifactId>common</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>
   <build>
