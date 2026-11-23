@@ -12,7 +12,6 @@ Projet *Ingénierie des Systèmes Sécurisés* (ENSIAS, 2026–2027). Un module 
 | **HTTPS** à l'entrée, en-têtes CSP et HSTS | Navigateur → cluster |
 
 ![Architecture](docs/architecture.svg)
-
 ---
 
 ## 1. Les microservices (tous en Java 21, Spring Boot 4)
