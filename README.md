@@ -1,6 +1,6 @@
 # Secure RAG microservices on Kubernetes
 
-A DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into **five microservices plus a vector database**, running on **Kubernetes (k3s)**, secured end to end, 
+A DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into microservices on **Kubernetes (k3s)**, secured end to end.
 
 - **Identity**: one authority (`uaa-service`) signs **JWTs (RS256)**. Users log in once; every service-to-service call carries a **short, audience-scoped JWT**.
 - **Transport**: every internal hop is **mutual TLS**, with certificates issued by **cert-manager** (private CA).
