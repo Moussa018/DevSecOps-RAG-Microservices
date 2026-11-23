@@ -71,5 +71,5 @@ jobs:
           docker build -t gw services/gateway
           docker run -d --name gw -p 8080:8080 -v "$PWD/jwt:/jwt:ro" -e CLIENT_SECRET=$(openssl rand -hex 16) gw
           for i in $(seq 1 30); do curl -sf localhost:8080/actuator/health && break || sleep 3; done
-      - uses: zaproxy/action-baseline@v0.12.0
+      - uses: zaproxy/action-baseline@v0.15.0
         with: { target: "http://localhost:8080", fail_action: false, allow_issue_writing: false }
