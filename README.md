@@ -9,9 +9,6 @@ A DevSecOps project: a RAG (Retrieval-Augmented Generation) pipeline split into 
 - Runs on **k3d** (k3s in Docker) on a laptop, or on any k3s/Kubernetes cluster.
 
 ![Architecture](docs/architecture.svg)
-
-Design inspired by three projects: the Spring microservice split with a dedicated **UAA + Gateway** ([OurBusWay](https://github.com/OurBusWay)), the secure **CI pipeline with SAST/SCA/DAST/Trivy triage** ([DevSecOps-Research-Project](https://github.com/ABDERRAHMANE2303/DevSecOps-Research-Project)), and the **input-safety checks and admission before processing** of a secure CI engine ([SecureDevOps](https://github.com/SecureDevOps-pfa/SecureDevOps)).
-
 ---
 
 ## 1. Services
