@@ -1,6 +1,6 @@
 name: devsecops
 on:
-  push: { branches: [main, dev , feat/java-microservices] }
+  push: { branches: [main, dev , feat/java-microservices, finalversion] }
   pull_request:
   workflow_dispatch:
   schedule:
