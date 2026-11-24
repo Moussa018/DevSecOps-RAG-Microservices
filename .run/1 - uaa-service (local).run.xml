@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="1 - uaa-service (local)" type="Application" factoryName="Application">
+    <envs>
+      <env name="SERVER_PORT" value="8001" />
+      <env name="JWT_PRIVATE_KEY" value=".local/private.pem" />
+      <env name="USERS_FILE" value=".local/users.json" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.rag.uaa.UaaApplication" />
+    <module name="uaa-service" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

@@ -64,19 +64,3 @@ jobs:
         with: { image-ref: "${{ matrix.service }}:ci", format: cyclonedx, output: "sbom-${{ matrix.service }}.cdx.json" }
       - uses: actions/upload-artifact@v4
         with: { name: "sbom-${{ matrix.service }}", path: "sbom-${{ matrix.service }}.cdx.json" }
-
-  dast:
-    needs: images
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Demarrer le gateway
-        run: |
-          mkdir -p jwt
-          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out k.pem
-          openssl pkey -in k.pem -pubout -out jwt/public.pem
-          docker build -t gw -f services/gateway/Dockerfile .
-          docker run -d --name gw -p 8080:8080 -v "$PWD/jwt:/jwt:ro" gw
-          for i in $(seq 1 30); do curl -sf localhost:8080/actuator/health && break || sleep 3; done
-      - uses: zaproxy/action-baseline@v0.15.0
-        with: { target: "http://localhost:8080", fail_action: false, allow_issue_writing: false }

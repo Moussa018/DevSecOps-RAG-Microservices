@@ -5,3 +5,6 @@ target/
 *.key
 .demo-credentials
 .local-ca.crt
+.idea/
+*.iml
+.local/

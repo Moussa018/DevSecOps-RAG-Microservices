@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="3 - rag-service (local)" type="Application" factoryName="Application">
+    <envs>
+      <env name="SERVER_PORT" value="8003" />
+      <env name="JWT_PUBLIC_KEY_LOCATION" value="file:.local/public.pem" />
+      <env name="QDRANT_URL" value="http://localhost:6333" />
+      <env name="LLM_BACKEND" value="fake" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.rag.qa.RagApplication" />
+    <module name="rag-service" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
