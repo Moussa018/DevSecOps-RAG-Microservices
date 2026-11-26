@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="2 - ingestion-service (local)" type="Application" factoryName="Application">
+    <envs>
+      <env name="SERVER_PORT" value="8002" />
+      <env name="JWT_PUBLIC_KEY_LOCATION" value="file:.local/public.pem" />
+      <env name="QDRANT_URL" value="http://localhost:6333" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.rag.ingestion.IngestionApplication" />
+    <module name="ingestion-service" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

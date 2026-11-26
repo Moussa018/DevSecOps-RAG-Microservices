@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# Prints a user JWT: scripts/login.sh alice   (password read from .demo-credentials)
 set -euo pipefail
-PY=python3; python3 -c "" >/dev/null 2>&1 || PY=python
 user="${1:?usage: login.sh <user>}"
-pw="$(grep "^$user:" "$(dirname "$0")/../.demo-credentials" | cut -d' ' -f2)"
-curl -sf "http://localhost:8080/api/auth/login" -H 'Content-Type: application/json' \
-  -d "{\"username\":\"$user\",\"password\":\"$pw\"}" | "$PY" -c 'import sys,json;print(json.load(sys.stdin)["access_token"])'
+dir="$(dirname "$0")/.."
+pw="$(grep "^$user:" "$dir/.demo-credentials" | cut -d' ' -f2)"
+curl -sf --ssl-revoke-best-effort --cacert "$dir/.local-ca.crt" "https://localhost:8443/api/auth/login" \
+  -H 'Content-Type: application/json' -d "{\"username\":\"$user\",\"password\":\"$pw\"}" \
+  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p'

@@ -1,0 +1,9 @@
+**/target
+.git
+report
+docs
+*.pdf
+*.rar
+*.zip
+.demo-credentials
+.local-ca.crt

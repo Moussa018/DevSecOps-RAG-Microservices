@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assistant documentaire</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="app.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <div class="bar-inner">
+      <span class="brand">Assistant documentaire</span>
+      <div class="session" id="session" hidden>
+        <span class="who" id="who"></span>
+        <span class="tags" id="roles"></span>
+        <span class="expiry" id="expiry"></span>
+        <button type="button" class="link" id="logout">Se déconnecter</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="login-view" class="login" aria-labelledby="login-title">
+      <h1 id="login-title">Connexion</h1>
+      <p class="hint">Les réponses ne s'appuient que sur les documents des groupes auxquels vous appartenez.</p>
+      <form id="login-form" class="form" novalidate>
+        <label for="username">Identifiant</label>
+        <input id="username" name="username" autocomplete="username" required maxlength="64">
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128">
+        <p class="msg" id="login-msg" role="alert"></p>
+        <button type="submit" class="primary" id="login-btn">Se connecter</button>
+      </form>
+    </section>
+
+    <section id="app-view" hidden>
+      <nav class="tabs" aria-label="Sections">
+        <button type="button" class="tab" data-tab="ask" id="tab-ask" hidden>Poser une question</button>
+        <button type="button" class="tab" data-tab="upload" id="tab-upload" hidden>Déposer un document</button>
+      </nav>
+
+      <div class="panel" id="panel-ask" hidden>
+        <form id="ask-form" class="form" novalidate>
+          <label for="question">Votre question</label>
+          <textarea id="question" rows="3" required minlength="3" maxlength="1000" placeholder="Quel est le budget 2026 ?"></textarea>
+          <div class="row">
+            <span class="count" id="question-count">0 / 1000</span>
+            <button type="submit" class="primary" id="ask-btn">Envoyer</button>
+          </div>
+          <p class="msg" id="ask-msg" role="alert"></p>
+        </form>
+        <article class="answer" id="answer" hidden>
+          <h2>Réponse</h2>
+          <p class="answer-text" id="answer-text"></p>
+          <h3>Sources</h3>
+          <ul class="sources" id="sources"></ul>
+        </article>
+      </div>
+
+      <div class="panel" id="panel-upload" hidden>
+        <form id="upload-form" class="form" novalidate>
+          <label for="title">Titre</label>
+          <input id="title" required maxlength="200" placeholder="Budget 2026">
+          <label for="text">Contenu</label>
+          <textarea id="text" rows="9" required maxlength="200000" placeholder="Collez le texte du document."></textarea>
+          <fieldset class="groups">
+            <legend>Groupes autorisés à le lire</legend>
+            <div id="group-list" class="group-list"></div>
+          </fieldset>
+          <p class="hint">Les mots de passe, clés, adresses e-mail et numéros de carte sont masqués avant l'indexation.</p>
+          <div class="row">
+            <span class="count" id="text-count">0 / 200 000</span>
+            <button type="submit" class="primary" id="upload-btn">Déposer</button>
+          </div>
+          <p class="msg" id="upload-msg" role="alert"></p>
+        </form>
+      </div>
+
+    </section>
+  </main>
+</body>
+</html>

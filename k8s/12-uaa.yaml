@@ -19,20 +19,20 @@ spec:
           image: uaa-service:latest
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8000 }]
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: tls }
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
-          resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
-          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 5 }
-          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          readinessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 15 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 40 }
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: tls, mountPath: /tls, readOnly: true }
-            - { name: jwt-public, mountPath: /jwt, readOnly: true }
             - { name: jwt-private, mountPath: /keys, readOnly: true }
             - { name: config, mountPath: /config, readOnly: true }
       volumes:
         - { name: tmp, emptyDir: {} }
         - { name: tls, secret: { secretName: uaa-service-tls, defaultMode: 0440 } }
-        - { name: jwt-public, configMap: { name: jwt-public } }
         - { name: jwt-private, secret: { secretName: uaa-jwt-key, defaultMode: 0440 } }
         - { name: config, secret: { secretName: uaa-config, defaultMode: 0440 } }
 ---

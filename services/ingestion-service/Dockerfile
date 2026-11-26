@@ -1,16 +1,12 @@
-FROM python:3.12-slim AS build
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-RUN PYTHONPATH=/install/lib/python3.12/site-packages python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2', cache_dir='/models')" && chmod -R a+rX /models
+# Build context: repository root (docker build -f services/ingestion-service/Dockerfile .)
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /src
+COPY pom.xml .
+COPY services services
+RUN --mount=type=cache,target=/root/.m2 mvn -q -B -pl services/ingestion-service -am -DskipTests package
 
-FROM python:3.12-slim
-RUN useradd -u 65532 -r -s /usr/sbin/nologin app
-COPY --from=build /install /usr/local
-COPY --from=build /models /models
-ENV HF_HUB_OFFLINE=1 FASTEMBED_CACHE_PATH=/models HF_HOME=/tmp/hf
-WORKDIR /app
-COPY app.py llm.py auth.py svc_client.py ./
-USER 65532
+FROM gcr.io/distroless/java21-debian13:nonroot
+COPY --from=build /src/services/ingestion-service/target/ingestion-service-1.0.0.jar /app/app.jar
+USER nonroot
 EXPOSE 8000
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--no-server-header", "--ssl-keyfile", "/tls/tls.key", "--ssl-certfile", "/tls/tls.crt", "--ssl-ca-certs", "/tls/ca.crt", "--ssl-cert-reqs", "2"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]

@@ -1,0 +1,26 @@
+# Pod with the label of ingestion-service: the NetworkPolicy must block it from reaching rag-service and the Internet.
+#   kubectl apply -f tests/cluster/netpol-test.yaml
+#   kubectl -n rag wait --for=jsonpath='{.status.phase}'=Succeeded pod/netpol-test --timeout=90s
+#   kubectl -n rag logs netpol-test
+#   kubectl -n rag delete pod netpol-test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: netpol-test
+  namespace: rag
+  labels: { app: ingestion-service }
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      command: ["sh", "-c"]
+      args:
+        - |
+          sleep 15   # let the NetworkPolicy controller program the rules for this new pod
+          echo "ingestion -> rag-service:8000"; curl -sk --max-time 5 https://rag-service:8000/ -o /dev/null && echo OUVERT || echo "bloque (code $?)"
+          echo "ingestion -> https://example.com"; curl -s --max-time 5 https://example.com -o /dev/null && echo OUVERT || echo "bloque (code $?)"
+      securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+      resources: { limits: { cpu: 100m, memory: 64Mi } }

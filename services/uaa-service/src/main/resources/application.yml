@@ -1,0 +1,11 @@
+spring.application.name: uaa-service
+server:
+  port: 8000
+  server-header: ""
+  max-http-request-header-size: 8KB
+  error: { include-message: never, include-stacktrace: never }
+uaa:
+  private-key-location: ${JWT_PRIVATE_KEY:/keys/private.pem}
+  users-file: ${USERS_FILE:/config/users.json}
+management:
+  endpoints.web.exposure.include: health

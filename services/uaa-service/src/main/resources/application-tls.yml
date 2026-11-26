@@ -1,0 +1,17 @@
+# Mutual TLS: the server presents its certificate and requires a client certificate signed by the private CA.
+server:
+  ssl:
+    enabled: true
+    bundle: tls
+    client-auth: need
+spring:
+  ssl:
+    bundle:
+      pem:
+        tls:
+          reload-on-update: true
+          keystore:
+            certificate: file:/tls/tls.crt
+            private-key: file:/tls/tls.key
+          truststore:
+            certificate: file:/tls/ca.crt
