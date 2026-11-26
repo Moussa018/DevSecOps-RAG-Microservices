@@ -1,5 +1,5 @@
 # Build context: repository root (docker build -f services/uaa-service/Dockerfile .)
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 WORKDIR /src
 COPY pom.xml .
 COPY services services
